@@ -12,9 +12,9 @@ git clone https://ghfast.top/https://github.com/1638276310/kkp-plugin.git ./plug
 
 安装依赖
 
-`
+```bash
 pnpm add axios -w
-`
+```
 
 为了防止风控，所以得安装python来处理图片
 
