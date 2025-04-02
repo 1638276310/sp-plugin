@@ -35,5 +35,3 @@ pacman -S python-pillow
 ```
 
 ## ✨ 功能    欢迎加群991639461
-
-![屏幕截图](https://foruda.gitee.com/images/1717359187534988738/93d70d05_11990909.png "屏幕截图")
