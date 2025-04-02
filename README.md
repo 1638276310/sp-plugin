@@ -1,6 +1,6 @@
 # 安装说明
 
-`安装
+安装
 
 ```bash
 git clone https://gitee.com/q1638276310/kkp-plugin.git ./plugins/kkp-plugin/
