@@ -53,6 +53,8 @@ export class VideoSearch extends plugin {
         const videoId = e.msg.match(/^#?吃瓜\s*(\S+)$/)?.[1]?.trim();
         if (!videoId) return;
 
+        await this.reply('正在搜索，请稍等...');
+
         const browser = await puppeteer.launch({
             args: ['--no-sandbox', '--disable-setuid-sandbox'],
             headless: 'new'
