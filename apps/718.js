@@ -14,7 +14,7 @@ export class VideoSearch extends plugin {
                     fnc: 'processVideoSearch'
                 },
                 {
-                    reg: '^#?吃瓜帮助$',
+                    reg: '^#?718帮助$',
                     fnc: 'videoHelp'
                 }
             ]
