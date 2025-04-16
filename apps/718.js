@@ -122,12 +122,13 @@ export class VideoSearch extends plugin {
                     try {
                         // 去掉 waitUntil 选项，等待所有资源加载完成
                         await page.goto(url, {
-                            timeout: 100000
+                            timeout: 10000000,
+                            waitUntil: "networkidle2"
                         })
                         break
                     } catch (err) {
                         if (retries === 0) throw err
-                        await new Promise((r) => setTimeout(r, 10000))
+                        await new Promise((r) => setTimeout(r, 10000000))
                     }
                 }
 
