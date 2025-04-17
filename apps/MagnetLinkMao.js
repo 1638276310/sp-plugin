@@ -37,7 +37,7 @@ export class MagnetLink extends plugin {
         // 给msg_id赋值
         const msg_id = res.message_id;
         //指定撤回消息
-        await e.group.recallMsg(msg_id, { recallMsg: 5000 });
+        await e.group.recallMsg(msg_id);
         // await this.reply('正在搜索，请稍等...',{ recallMsg: 100 });
         let match = e.msg.match(/^#?磁力猫\s*(\S+)(\s+(\S+))?(\s+(\S+))?(\s+(\d+))?$/);
         if (!match) {
