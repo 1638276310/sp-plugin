@@ -33,6 +33,7 @@ export class MagnetLink extends plugin {
 
     async processMagnetLink(e) {
         if (!e.isGroup) return;
+        await this.reply('正在搜索，请稍等...',{ recallMsg: 100 });
         let match = e.msg.match(/^#?磁力猫\s*(\S+)(\s+(\S+))?(\s+(\S+))?(\s+(\d+))?$/);
         if (!match) {
             return;
@@ -44,9 +45,11 @@ export class MagnetLink extends plugin {
         const resultCount = parseInt(match[7]) || 10;
 
         const urls = [
-            `https://izgjuzya.8800461.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-            `https://onqedydj.8800462.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-            `https://edhpvzgi.8800463.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+            `https://ukxodcyk.8800460.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+            `https://fgodhgyd.8800462.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+            `https://ieefyery.8800463.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+            `https://wvtznoym.8800464.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+            `https://vmzmqbsc.8800465.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
         ];
 
         const browser = await puppeteer.launch({ 
