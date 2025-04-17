@@ -33,7 +33,7 @@ export class MagnetLink extends plugin {
 
     async processMagnetLink(e) {
         if (!e.isGroup) return;
-        // const res = await e.reply("正在搜索，请稍等...");
+        const res = await e.reply("正在搜索，请稍等...");
         // 给msg_id赋值
         const msg_id = res.message_id;
         //指定撤回消息
