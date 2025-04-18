@@ -45,8 +45,8 @@ export class ArtistSubscription extends plugin {
     }
 
     async subscribeArtist(e) {
-        if (!e.isGroup) return; 
-
+        if (!e.isGroup) return;
+        await e.reply("正在订阅，请稍等...", false, { at: true, recallMsg: 60 });
         const groupId = e.group_id;
         const data = this.loadData();
 

@@ -61,6 +61,8 @@ export class PixivImageFetcher extends plugin {
     }
 
     async processPixivImages(e) {
+        if (!e.isGroup) return;
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         try {
             const matchedPid = e.msg.match(/^#?pid(\d+)$/)[1];
             const url = `${pidAPI(matchedPid)}`;

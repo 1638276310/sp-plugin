@@ -36,6 +36,11 @@ export class PixivArtistWorksFetcher extends plugin {
     }
 
     async fetchArtistDetails(artistId) {
+        if (!artistId) {
+            throw new Error('请输入正确的画师ID');
+        }
+        if (!e.isGroup) return;
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         try {
             const response = await axios.get(user(artistId));
             return response.data;

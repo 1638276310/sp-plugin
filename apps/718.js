@@ -84,11 +84,11 @@ export class VideoSearch extends plugin {
     }
 
     async processVideoSearch(e) {
-        if (!e.isGroup) return
-        const videoId = e.msg.match(/^#?吃瓜\s*(\S+)$/)?.[1]?.trim()
-        if (!videoId) return
+        if (!e.isGroup) return;
+        const videoId = e.msg.match(/^#?吃瓜\s*(\S+)$/)?.[1]?.trim();
+        if (!videoId) return;
 
-        await this.reply("正在搜索，请稍等...")
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
