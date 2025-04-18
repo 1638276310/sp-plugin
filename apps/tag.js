@@ -108,8 +108,8 @@ export class SetuImageFetcher extends plugin {
         const selectedPids = this.getRandomIds(idsList, num);
         const detailsPromises = selectedPids.map(pid => this.fetchPixivImageDetails(pid));
         const detailsList = await Promise.all(detailsPromises);
-
-        await e.reply(`图片获取完毕，正在发送中...`);
+        await e.reply("图片获取完毕，正在发送中...", false, { at: true, recallMsg: 60 });
+        // await e.reply(`图片获取完毕，正在发送中...`);
 
         const imageMessages = await Promise.all(detailsList.map(async (details, index) => {
             if (details && details.body) {
