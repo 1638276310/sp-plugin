@@ -1,5 +1,7 @@
 import plugin from "../../../lib/plugins/plugin.js"
 import puppeteer from "puppeteer"
+import fs from "fs"
+import path from "path"
 
 export class VideoSearch extends plugin {
     constructor() {
@@ -16,6 +18,10 @@ export class VideoSearch extends plugin {
                 {
                     reg: "^#?718帮助$",
                     fnc: "videoHelp"
+                },
+                {
+                    reg: "^#?随机吃瓜$",
+                    fnc: "randomVideoSearch"
                 }
             ]
         })
@@ -59,8 +65,53 @@ export class VideoSearch extends plugin {
             "https://spark.kuaidianlaill.com",
             "https://brave.kuaidianlaill.com",
             "https://swarm.kuaidianlaill.com",
-            "https://swish.kuaidianlaill.com"
+            "https://swish.kuaidianlaill.com",
         ]
+        // 定义排除文章 ID 的列表
+        this.excludedArticleIds = [
+            19949,
+            813,
+            18914,
+            18405,
+            18185,
+            16910,
+            16790,
+            14666,
+            13619,
+            12535,
+            12489,
+            12395,
+            9999,
+            9278,
+            8819,
+            7859,
+            7293,
+            6998,
+            6692,
+            2307,
+            548,
+            521,
+            26,
+        ];
+        
+        // 加载所有文章ID
+        this.allArticleIds = this.loadArchiveIds();
+    }
+    
+    loadArchiveIds() {
+        try {
+            const jsonfilepath = './plugins/kkp-plugin/config/archive_ids.json';
+            if (fs.existsSync(jsonfilepath)) {
+                const data = fs.readFileSync(jsonfilepath, 'utf-8');
+                const ids = JSON.parse(data);
+                const filteredIds = ids.filter(id => !this.excludedArticleIds.includes(id));
+                return filteredIds;
+            }
+            return [];
+        } catch (error) {
+            logger.error('加载archive_ids.json失败:', error);
+            return [];
+        }
     }
 
     async videoHelp(e) {
@@ -70,6 +121,9 @@ export class VideoSearch extends plugin {
                 "【使用说明】",
                 "命令格式：(#)吃瓜[文章ID]",
                 "示例：(#)吃瓜123",
+                "",
+                "新增功能：",
+                "(#)随机吃瓜 - 随机获取一个可用的视频",
                 "",
                 "⚠️ 请遵守相关法律法规",
                 "",
@@ -82,11 +136,42 @@ export class VideoSearch extends plugin {
             ].join("\n")
         )
     }
+    
+    // 随机吃瓜功能
+    async randomVideoSearch(e) {
+        if (!e.isGroup) return;
+        
+        if (this.allArticleIds.length === 0) {
+            await e.reply("没有可用的随机视频ID，请检查archive_ids.json文件", false, { at: true, recallMsg: 60 });
+            return;
+        }
+        
+        // 随机选择一个ID
+        const randomIndex = Math.floor(Math.random() * this.allArticleIds.length);
+        const randomVideoId = this.allArticleIds[randomIndex];
+        
+        await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, recallMsg: 60 });
+        
+        // 调用原有的处理函数
+        await this.processVideoSearch({
+            ...e,
+            msg: `#吃瓜 ${randomVideoId}`
+        });
+    }
 
     async processVideoSearch(e) {
         if (!e.isGroup) return;
         const videoId = e.msg.match(/^#?吃瓜\s*(\S+)$/)?.[1]?.trim();
         if (!videoId) return;
+
+        // 将 videoId 转换为数字类型
+        const numericVideoId = parseInt(videoId, 10);
+
+        // 检查视频 ID 是否在排除列表中
+        if (this.excludedArticleIds.includes(numericVideoId)) {
+            await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true, recallMsg: 60 });
+            return;
+        }
 
         await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
@@ -160,6 +245,14 @@ export class VideoSearch extends plugin {
                         if (dplayer) {
                             const config = JSON.parse(dplayer.getAttribute("data-config"))
                             result.videoUrl = config.video?.url || null
+                        }
+
+                        // 对于ID≥19949的视频，从video标签获取blob地址
+                        if (!result.videoUrl) {
+                            const videoElement = document.querySelector("video.dplayer-video")
+                            if (videoElement) {
+                                result.videoUrl = videoElement.getAttribute("src") || null
+                            }
                         }
 
                         // 提取所有图片的src属性
@@ -291,12 +384,19 @@ export class VideoSearch extends plugin {
                 }
 
                 // 清理URL
-                const cleanUrl = pageInfo.videoUrl.replace(/\\\//g, "/").split("?")[0]
+                let cleanUrl = pageInfo.videoUrl
+                if (numericVideoId >= 19949) {
+                    // 对于blob地址，直接使用
+                    cleanUrl = pageInfo.videoUrl
+                } else {
+                    // 对于普通m3u8地址，进行清理
+                    cleanUrl = pageInfo.videoUrl.replace(/\\\//g, "/").split("?")[0]
+                }
 
                 // 构建回复消息
                 const replyMsg = [
-                    `✅ 视频m3u8地址获取成功`,
-                    `\`\`\`json${url}\`\`\``,
+                    `✅ 视频地址获取成功`,
+                    // `\`\`\`${url}\`\`\``,
                     `🆔 视频ID: ${videoId}`
                 ]
 
@@ -316,9 +416,9 @@ export class VideoSearch extends plugin {
 
                 replyMsg.push(
                     "",
-                    `🔗 m3u8地址:`,
-                    `\`\`\`json${cleanUrl}\`\`\``,
-                    `ℹ️ 请自行下载m3u8转mp4视频`,
+                    `🔗 视频地址:`,
+                    `\`\`\`${cleanUrl}\`\`\``,
+                    `ℹ️ 请自行下载视频`,
                     `📛 请勿用于非法用途`
                 )
 
@@ -341,93 +441,93 @@ export class VideoSearch extends plugin {
                             }, blobUrl)
 
                             // 添加图片到转发消息节点
-							images.push({
-								type: "image",
-								data: {
-									file: base64
-								}
-							})
-						} catch (err) {
-							logger.error("处理blob图片失败:", err)
-						}
-					}
-				}
+                            images.push({
+                                type: "image",
+                                data: {
+                                    file: base64
+                                }
+                            })
+                        } catch (err) {
+                            logger.error("处理blob图片失败:", err)
+                        }
+                    }
+                }
 
-				const requestBody = {
-					group_id: e.group_id,
-					user_id: e.user_id,
-					message: [
-						{
-							type: "node",
-							data: {
-								nickname: e.sender.nickname,
-								user_id: e.user_id,
-								content: [
-									{
-										type: "node",
-										data: {
-											nickname: e.sender.nickname,
-											user_id: e.user_id,
-											content: [
-												{
-													type: "markdown",
-													data: {
-														content: forwardNodes
-													}
-												}
-											]
-										}
-									},
-									{
-										type: "node",
-										data: {
-											nickname: e.sender.nickname,
-											user_id: e.user_id,
-											content: images
-										}
-									}
-								],
+                const requestBody = {
+                    group_id: e.group_id,
+                    user_id: e.user_id,
+                    message: [
+                        {
+                            type: "node",
+                            data: {
+                                nickname: e.sender.nickname,
+                                user_id: e.user_id,
+                                content: [
+                                    {
+                                        type: "node",
+                                        data: {
+                                            nickname: e.sender.nickname,
+                                            user_id: e.user_id,
+                                            content: [
+                                                {
+                                                    type: "markdown",
+                                                    data: {
+                                                        content: forwardNodes
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        type: "node",
+                                        data: {
+                                            nickname: e.sender.nickname,
+                                            user_id: e.user_id,
+                                            content: images
+                                        }
+                                    }
+                                ],
 
-								news: [
-									{ text: `✅内容含有裸露` },
-									{ text: `请确认环境，避免社死` }
-								],
-								prompt: "718我们一起来吃瓜",
-								summary: `By:QQ1638276310`,
-								source: `点击查看搜索结果`
-							}
-						}
-					],
-					news: [{ text: `✅内容含有裸露` }, { text: `请确认环境，避免社死` }],
-					prompt: "718我们一起来吃瓜 ",
-					summary: `By:QQ1638276310`,
-					source: `点击查看搜索结果`
-				}
+                                news: [
+                                    { text: `✅内容含有裸露` },
+                                    { text: `请确认环境，避免社死` }
+                                ],
+                                prompt: "718我们一起来吃瓜",
+                                summary: `By:QQ1638276310`,
+                                source: `点击查看搜索结果`
+                            }
+                        }
+                    ],
+                    news: [{ text: `✅内容含有裸露` }, { text: `请确认环境，避免社死` }],
+                    prompt: "718我们一起来吃瓜 ",
+                    summary: `By:QQ1638276310`,
+                    source: `点击查看搜索结果`
+                }
 
-				// 发送转发消息
-				await e.bot.sendApi("send_group_forward_msg", requestBody)
-				await page.close()
-				await browser.close()
-				return
-			} catch (error) {
-				logger.error(`[吃瓜] 在 ${url} 上出现错误: ${error.message}`)
-				lastError = error
-				continue
-			}
-		}
+                // 发送转发消息
+                await e.bot.sendApi("send_group_forward_msg", requestBody)
+                await page.close()
+                await browser.close()
+                return
+            } catch (error) {
+                logger.error(`[吃瓜] 在 ${url} 上出现错误: ${error.message}`)
+                lastError = error
+                continue
+            }
+        }
 
-		// 所有URL尝试都失败后
-		await browser.close()
-		logger.error(`[吃瓜] 所有镜像站点尝试失败: ${lastError?.message}`)
-		await this.reply(
-			[
-				"❌ 获取视频地址失败",
-				`错误原因: ${lastError?.message || "未知错误"}`,
-				"请检查：",
-				"1. 视频ID是否正确",
-				"2. 所有镜像站点均无法访问",
-				"3. 若持续失败，请联系管理员"
-			].join("\n")
-		)
-	}
+        // 所有URL尝试都失败后
+        await browser.close()
+        logger.error(`[吃瓜] 所有镜像站点尝试失败: ${lastError?.message}`)
+        await this.reply(
+            [
+                "❌ 获取视频地址失败",
+                `错误原因: ${lastError?.message || "未知错误"}`,
+                "请检查：",
+                "1. 视频ID是否正确",
+                "2. 所有镜像站点均无法访问",
+                "3. 若持续失败，请联系管理员"
+            ].join("\n")
+        )
+    }
 }
