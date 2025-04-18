@@ -492,7 +492,7 @@ export class VideoSearch extends plugin {
                                     { text: `✅内容含有裸露` },
                                     { text: `请确认环境，避免社死` }
                                 ],
-                                prompt: "718我们一起来吃瓜",
+                                prompt: "我们一起来吃瓜",
                                 summary: `By:QQ1638276310`,
                                 source: `点击查看搜索结果`
                             }
