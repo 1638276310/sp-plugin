@@ -94,7 +94,7 @@ export class SetuImageFetcher extends plugin {
         const [, numStr, tag] = e.msg.match(this.rule.find(rule => e.msg.match(rule.reg)).reg);
         const num = parseInt(numStr);
 
-        if (num > 30) {
+        if (num > 20) {
             await e.reply("你想冲死吗？");
             return;
         }
