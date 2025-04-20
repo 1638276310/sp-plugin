@@ -46,7 +46,7 @@ export class MagnetLinkFetcher extends plugin {
     }
 
     async fetchWithPuppeteer(url) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         //await this.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         let browser;
         try {
