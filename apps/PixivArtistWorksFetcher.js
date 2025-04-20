@@ -74,10 +74,12 @@ export class PixivArtistWorksFetcher extends plugin {
     }
 
     async processLatestArtistWorks(e) {
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         await this._processArtistWorks(e, false);
     }
 
     async processRandomArtistWorks(e) {
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         await this._processArtistWorks(e, true);
     }
 
