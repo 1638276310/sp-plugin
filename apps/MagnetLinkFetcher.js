@@ -45,9 +45,9 @@ export class MagnetLinkFetcher extends plugin {
         });
     }
 
-    async fetchWithPuppeteer(url) {
-        // if (!e.isGroup) return;
-        //await this.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+    async fetchWithPuppeteer(url,e) {
+        if (!e.isGroup) return;
+        await this.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         let browser;
         try {
             browser = await this._launchBrowser();
@@ -166,7 +166,7 @@ export class MagnetLinkFetcher extends plugin {
                 const matchedMagnet = e.msg.match(/^#验车(magnet:.+)$/)[1];
                 const url = magnetURL(matchedMagnet);
 
-                const response = await this.fetchWithPuppeteer(url);
+                const response = await this.fetchWithPuppeteer(url,e);
                 if (!response || response.error) {
                     throw new Error(response?.error || '无效的响应数据');
                 }
