@@ -33,13 +33,8 @@ export class MagnetLink extends plugin {
 
     async processMagnetLink(e) {
         if (!e.isGroup) return;
-        // const res = await e.reply("正在搜索，请稍等...");
-        // 给msg_id赋值
-        // const msg_id = res.message_id;
         // 指定撤回消息
         await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-        // await e.group.recallMsg(msg_id, { recallMsg: 10000 });
-        // await this.reply('正在搜索，请稍等...',{ recallMsg: 10000 });
         let match = e.msg.match(/^#?磁力猫\s*(\S+)(\s+(\S+))?(\s+(\S+))?(\s+(\d+))?$/);
         if (!match) {
             return;
