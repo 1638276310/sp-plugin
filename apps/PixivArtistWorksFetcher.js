@@ -18,7 +18,7 @@ export class PixivArtistWorksFetcher extends plugin {
             priority: 50,
             rule: [
                 {
-                    reg: '^#来(\\d+)张(\\d+)作品$',
+                    reg: '^#?来(\\d+)张(\\d+)作品$',
                     fnc: 'processLatestArtistWorks'
                 },
                 {
