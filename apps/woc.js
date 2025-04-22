@@ -30,7 +30,7 @@ export class WocPlugin extends plugin {
         this.config = DEFAULT_CONFIG;
     }
 
-    async wocHandler() {
+    async wocHandler(e) {
         if (!this.e.isGroup) {
             this.e.reply("[安全限制] 请勿私聊使用本指令", true);
             return false;
