@@ -359,67 +359,7 @@ export class VideoSearch extends plugin {
                     cleanUrl = pageInfo.videoUrl.replace(/\\\//g, "/").split("?")[0]
                 }
 
-                // 构建回复消息
-                const replyMsg = [
-                    `✅ 视频地址获取成功`,
-                    // `\`\`\`${url}\`\`\``,
-                    `🆔 视频ID: ${videoId}`
-                ]
-
-                if (pageInfo.title) {
-                    replyMsg.push(`📝 标题: ${pageInfo.title}`)
-                }
-
-                if (pageInfo.publishTime) {
-                    replyMsg.push(`📅 发布时间: ${pageInfo.publishTime}`)
-                }
-
-                // 添加文章内容
-                if (pageInfo.articleContent && pageInfo.articleContent.length > 0) {
-                    replyMsg.push("", "📖 文章内容：")
-                    replyMsg.push(...pageInfo.articleContent)
-                }
-
-                replyMsg.push(
-                    "",
-                    `🔗 视频地址:`,
-                    `\`\`\`${cleanUrl}\`\`\``,
-                    `ℹ️ 请自行下载视频`,
-                    `📛 请勿用于非法用途`
-                )
-
-                // 构建转发消息节点
-                const forwardNodes = replyMsg.join("\n")
-                const images = []
-                // 如果有图片，添加到转发消息节点
-                if (pageInfo.images && pageInfo.images.length > 0) {
-                    for (const blobUrl of pageInfo.images) {
-                        try {
-                            // 获取blob数据并转换为base64
-                            const base64 = await page.evaluate(async (url) => {
-                                const response = await fetch(url);
-                                const blob = await response.blob();
-                                return new Promise((resolve) => {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => resolve(reader.result);
-                                    reader.readAsDataURL(blob);
-                                });
-                            }, blobUrl);
-
-                            // 添加图片到转发消息节点
-                            forwardNodes.push({
-                                user_id: e.user_id,
-                                nickname: e.sender.nickname,
-                                message: [
-                                    { type: 'image', file: base64 }
-                                ]
-                            });
-                        } catch (err) {
-                            console.error('处理blob图片失败:', err);
-                        }
-                    }
-                }
-
+                // 构建转发消息
                 const requestBody = {
                     group_id: e.group_id,
                     user_id: e.user_id,
@@ -439,22 +379,20 @@ export class VideoSearch extends plugin {
                                                 {
                                                     type: "markdown",
                                                     data: {
-                                                        content: forwardNodes
+                                                        content: `# 视频ID: ${videoId}\n` +
+                                                            (pageInfo.title ? `## 标题: ${pageInfo.title}\n` : '') +
+                                                            (pageInfo.publishTime ? `## 发布时间: ${pageInfo.publishTime}\n` : '') +
+                                                            (pageInfo.articleContent.length > 0 ? 
+                                                                `## 文章内容:\n${pageInfo.articleContent.join('\n')}\n` : '') +
+                                                            `## 视频地址:\n\`\`\`${cleanUrl}\`\`\`\n` +
+                                                            `> ℹ️ 请自行下载视频\n` +
+                                                            `> 📛 请勿用于非法用途`
                                                     }
                                                 }
                                             ]
                                         }
-                                    },
-                                    {
-                                        type: "node",
-                                        data: {
-                                            nickname: e.sender.nickname,
-                                            user_id: e.user_id,
-                                            content: images
-                                        }
                                     }
                                 ],
-
                                 news: [
                                     { text: `✅内容含有裸露` },
                                     { text: `请确认环境，避免社死` }
@@ -471,6 +409,41 @@ export class VideoSearch extends plugin {
                     source: `点击查看搜索结果`
                 }
 
+                // 如果有图片，添加图片节点
+                if (pageInfo.images && pageInfo.images.length > 0) {
+                    for (const blobUrl of pageInfo.images) {
+                        try {
+                            const base64 = await page.evaluate(async (url) => {
+                                const response = await fetch(url);
+                                const blob = await response.blob();
+                                return new Promise((resolve) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.readAsDataURL(blob);
+                                });
+                            }, blobUrl);
+
+                            requestBody.message[0].data.content.push({
+                                type: "node",
+                                data: {
+                                    nickname: e.sender.nickname,
+                                    user_id: e.user_id,
+                                    content: [
+                                        {
+                                            type: "image",
+                                            data: {
+                                                file: base64
+                                            }
+                                        }
+                                    ]
+                                }
+                            });
+                        } catch (err) {
+                            console.error('处理blob图片失败:', err);
+                        }
+                    }
+                }
+
                 // 发送转发消息
                 await e.bot.sendApi("send_group_forward_msg", requestBody)
                 await page.close()
@@ -483,7 +456,7 @@ export class VideoSearch extends plugin {
             }
         }
 
-        // 所有URL尝试都失败后
+// 所有URL尝试都失败后
         await browser.close()
         logger.error(`[吃瓜] 所有镜像站点尝试失败: ${lastError?.message}`)
         await this.reply(
