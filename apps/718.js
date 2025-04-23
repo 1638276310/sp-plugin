@@ -35,37 +35,6 @@ export class VideoSearch extends plugin {
             "https://cloud.zuiniude.xyz",
             "https://fence.zuiniude.xyz",
             "https://plane.zuiniude.xyz",
-            "https://blend.zuiniude.xyz",
-            "https://clout.zuiniude.xyz",
-            "https://roast.zuiniude.xyz",
-            "https://fizzy.zuiniude.xyz",
-            "https://roast.zuiniude.xyz",
-            "https://spunk.zuiniude.xyz",
-            "https://giddy.liuliangqifei.xyz",
-            "https://chuck.liuliangqifei.xyz",
-            "https://whiff.liuliangqifei.xyz",
-            "https://light.liuliangqifei.xyz",
-            "https://stash.liuliangqifei.xyz",
-            "https://grain.liuliangqifei.xyz",
-            "https://fence.liuliangqifei.xyz",
-            "https://flame.kuaidianlaill.com",
-            "https://plume.liuliangqifei.xyz",
-            "https://stark.liuliangqifei.xyz",
-            "https://scarf.kuaidianlaill.com",
-            "https://slope.liuliangqifei.xyz",
-            "https://chess.kuaidianlaill.com",
-            "https://gravy.kuaidianlaill.com",
-            "https://crush.kuaidianlaill.com",
-            "https://crush.kuaidianlaill.com",
-            "https://fling.kuaidianlaill.com",
-            "https://creek.liuliangqifei.xyz",
-            "https://chest.kuaidianlaill.com",
-            "https://whale.kuaidianlaill.com",
-            "https://flare.kuaidianlaill.com",
-            "https://spark.kuaidianlaill.com",
-            "https://brave.kuaidianlaill.com",
-            "https://swarm.kuaidianlaill.com",
-            "https://swish.kuaidianlaill.com",
         ]
         // 定义排除文章 ID 的列表
         this.excludedArticleIds = [
@@ -341,38 +310,16 @@ export class VideoSearch extends plugin {
                             "吃瓜718",
                         ]
 
-                        // 获取所有<p>标签，然后过滤掉在评论区域内的
-                        const allPElements = document.querySelectorAll("p")
+                        // 提取所有<p>标签的文字内容
+                        const allPElements = document.querySelectorAll("p");
                         allPElements.forEach((p) => {
-                            // 检查是否在评论区域内
-                            let isInComment = false
-                            let parent = p.parentElement
-
-                            while (parent) {
-                                if (
-                                    parent.classList &&
-                                    parent.classList.contains("comment-content")
-                                ) {
-                                    isInComment = true
-                                    break
-                                }
-                                parent = parent.parentElement
+                            const text = p.textContent.trim();
+                            if (text) {
+                                result.articleContent.push(text);
                             }
+                        });
 
-                            if (!isInComment) {
-                                const text = p.textContent.trim()
-                                if (
-                                    text &&
-                                    !text.includes("视频播放异常") &&
-                                    !excludeKeywords.some((keyword) => text.includes(keyword)) &&
-                                   !/^[^\u4e00-\u9fa5]*$/.test(text) // 排除纯符号和非中文内容
-                                ) {
-                                    result.articleContent.push(text)
-                                }
-                            }
-                        })
-
-                        return result
+                        return result;
                     } catch (e) {
                         logger.error("解析页面信息失败:", e)
                         return null
