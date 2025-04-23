@@ -100,7 +100,7 @@ export class VideoSearch extends plugin {
     
     loadArchiveIds() {
         try {
-            const jsonfilepath = './plugins/kkp-plugin/config/archive_ids.json';
+            const jsonfilepath = './plugins/sp-plugin/config/archive_ids.json';
             if (fs.existsSync(jsonfilepath)) {
                 const data = fs.readFileSync(jsonfilepath, 'utf-8');
                 const ids = JSON.parse(data);

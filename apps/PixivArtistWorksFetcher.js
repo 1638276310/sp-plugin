@@ -30,7 +30,7 @@ export class PixivArtistWorksFetcher extends plugin {
     }
 
     getRecallConfig() {
-        const path = './plugins/kkp-plugin/config/recall.yaml';
+        const path = './plugins/sp-plugin/config/recall.yaml';
         const fileContents = fs.readFileSync(path, 'utf8');
         return YAML.parse(fileContents);
     }
@@ -54,12 +54,12 @@ export class PixivArtistWorksFetcher extends plugin {
     }
 
     async modifyImageWithPython(imageBuffer, imageName) {
-        const tempImagePath = `./plugins/kkp-plugin/temp/temp_${imageName}.jpg`;
+        const tempImagePath = `./plugins/sp-plugin/temp/temp_${imageName}.jpg`;
 
         fs.writeFileSync(tempImagePath, imageBuffer);
 
         try {
-            const { stdout } = await execFileAsync(pythonCommand, ['./plugins/kkp-plugin/modify_image.py', tempImagePath]);
+            const { stdout } = await execFileAsync(pythonCommand, ['./plugins/sp-plugin/modify_image.py', tempImagePath]);
             const modifiedImagePath = stdout.trim();
             const modifiedImageBuffer = fs.readFileSync(modifiedImagePath);
 

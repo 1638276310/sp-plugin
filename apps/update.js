@@ -15,20 +15,20 @@ let uping = false
 export class Update extends plugin {
     constructor() {
         super({
-            name: '更新kkp插件',
+            name: '更新sp插件',
             dsc: '更新插件',
             event: 'message',
             priority: 10,
             rule: [
                 {
-                    reg: '^#*(kkp|kkp)(插件)?(强制)?更新$',
+                    reg: '^#*(sp|sp)(插件)?(强制)?更新$',
                     fnc: 'update'
                 }
             ]
         })
     }
     /**
-     * rule - 更新kkp插件
+     * rule - 更新sp插件
      * @returns
      */
     async update() {
@@ -52,12 +52,12 @@ export class Update extends plugin {
         new Restart(this.e).restart()
     }
     /**
-     * kkp插件更新函数
+     * sp插件更新函数
      * @param {boolean} isForce 是否为强制更新
      * @returns
      */
     async runUpdate(isForce) {
-        const _path = './plugins/kkp-plugin/'
+        const _path = './plugins/sp-plugin/'
         let command = `git -C ${_path} pull --no-rebase`
         if (isForce) {
             command = `git -C ${_path} reset --hard origin && ${command}`
@@ -66,33 +66,33 @@ export class Update extends plugin {
             this.e.reply('正在执行更新操作，请稍等')
         }
         /** 获取上次提交的commitId，用于获取日志时判断新增的更新日志 */
-        this.oldCommitId = await this.getcommitId('kkp-plugin')
+        this.oldCommitId = await this.getcommitId('sp-plugin')
         uping = true
         let ret = await this.execSync(command)
         uping = false
 
         if (ret.error) {
-            logger.mark(`${this.e.logFnc} 更新失败：kkp插件`)
+            logger.mark(`${this.e.logFnc} 更新失败：sp插件`)
             this.gitErr(ret.error, ret.stdout)
             return false
         }
         /** 获取插件提交的最新时间 */
-        let time = await this.getTime('kkp-plugin')
+        let time = await this.getTime('sp-plugin')
 
         if (/(Already up[ -]to[ -]date|已经是最新的)/.test(ret.stdout)) {
-            await this.reply(`kkp插件已经是最新版本\n最后更新时间：${time}`)
+            await this.reply(`sp插件已经是最新版本\n最后更新时间：${time}`)
         } else {
-            await this.reply(`kkp插件\n最后更新时间：${time}`)
+            await this.reply(`sp插件\n最后更新时间：${time}`)
             this.isUp = true
-            /** 获取kkp组件的更新日志 */
-            let log = await this.getLog('kkp-plugin')
+            /** 获取sp组件的更新日志 */
+            let log = await this.getLog('sp-plugin')
             await this.reply(log)
         }
         logger.mark(`${this.e.logFnc} 最后更新时间：${time}`)
         return true
     }
     /**
-     * 获取kkp插件的更新日志
+     * 获取sp插件的更新日志
      * @param {string} plugin 插件名称
      * @returns
      */
@@ -117,7 +117,7 @@ export class Update extends plugin {
         let line = log.length
         log = log.join('\n\n')
         if (log.length <= 0) return ''
-        let end = '更多详细信息，请前往gitee查看\nhttps://gitee.com/dungeonmaster/kkp-plugin'
+        let end = '更多详细信息，请前往gitee查看\nhttps://gitee.com/dungeonmaster/sp-plugin'
         log = await common.makeForwardMsg(this.e, [log, end], `${plugin}更新日志，共${line}条`)
         return log
     }

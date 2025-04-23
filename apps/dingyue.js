@@ -31,14 +31,14 @@ export class ArtistSubscription extends plugin {
     }
 
     loadData() {
-        const filePath = './plugins/kkp-plugin/config/dingyue.yaml';
+        const filePath = './plugins/sp-plugin/config/dingyue.yaml';
         if (!fs.existsSync(filePath)) return {};
         const fileContents = fs.readFileSync(filePath, 'utf8');
         return YAML.parse(fileContents) || {};
     }
 
     saveData(data) {
-        const filePath = './plugins/kkp-plugin/config/dingyue.yaml';
+        const filePath = './plugins/sp-plugin/config/dingyue.yaml';
         this.ensureDirectoryExistence(filePath);
         const yamlContent = YAML.stringify(data);
         fs.writeFileSync(filePath, yamlContent, 'utf8');

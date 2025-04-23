@@ -25,7 +25,7 @@ export class example extends plugin {
 
     async P2(e) {
         try {
-            const filePath = './plugins/kkp-plugin/config/23tu.json';
+            const filePath = './plugins/sp-plugin/config/23tu.json';
             const data = fs.readFileSync(filePath, 'utf8');
             const jsonData = JSON.parse(data);
             const P2 = jsonData.P2 || [];
@@ -42,7 +42,7 @@ export class example extends plugin {
 
     async P3(e) {
         try {
-            const filePath = './plugins/kkp-plugin/config/23tu.json';
+            const filePath = './plugins/sp-plugin/config/23tu.json';
             const data = fs.readFileSync(filePath, 'utf8');
             const jsonData = JSON.parse(data);
             const P3 = jsonData.P3 || [];

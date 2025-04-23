@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 
-const files = fs.readdirSync('./plugins/kkp-plugin/apps').filter(file => file.endsWith('.js'))
+const files = fs.readdirSync('./plugins/sp-plugin/apps').filter(file => file.endsWith('.js'))
 
 let ret = []
 

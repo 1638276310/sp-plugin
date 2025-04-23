@@ -25,7 +25,7 @@ export class DailyRankImageFetcher extends plugin {
     }
 
     getRecallConfig() {
-        const path = './plugins/kkp-plugin/config/recall.yaml';
+        const path = './plugins/sp-plugin/config/recall.yaml';
         const fileContents = fs.readFileSync(path, 'utf8');
         return YAML.parse(fileContents);
     }
@@ -52,7 +52,7 @@ export class DailyRankImageFetcher extends plugin {
 
     async modifyImageWithPython(imagePath) {
         return new Promise((resolve, reject) => {
-            execFile(pythonCommand, ['./plugins/kkp-plugin/modify_image.py', imagePath], (error, stdout, stderr) => {
+            execFile(pythonCommand, ['./plugins/sp-plugin/modify_image.py', imagePath], (error, stdout, stderr) => {
                 if (error) {
                     reject(error);
                 } else {
@@ -63,7 +63,7 @@ export class DailyRankImageFetcher extends plugin {
     }
 
     deleteTempFiles() {
-        const tempDir = path.resolve('./plugins/kkp-plugin/temp');
+        const tempDir = path.resolve('./plugins/sp-plugin/temp');
         fs.readdir(tempDir, (err, files) => {
             if (err) {
                 console.error('读取temp目录失败：', err);
@@ -113,7 +113,7 @@ export class DailyRankImageFetcher extends plugin {
                 const validImageDatas = imageDatas.filter(data => data !== null);
 
                 const modifiedImagePaths = await Promise.all(validImageDatas.map(async (imageData, i) => {
-                    const imagePath = `./plugins/kkp-plugin/temp/temp_image_${index}_${i}.jpg`;
+                    const imagePath = `./plugins/sp-plugin/temp/temp_image_${index}_${i}.jpg`;
                     fs.writeFileSync(imagePath, imageData);
                     const modifiedImagePath = await this.modifyImageWithPython(imagePath);
                     return modifiedImagePath;

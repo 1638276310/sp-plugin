@@ -32,7 +32,7 @@ export class RecallConfigController extends plugin {
     }
 
     getConfigPath() {
-        return './plugins/kkp-plugin/config/recall.yaml';
+        return './plugins/sp-plugin/config/recall.yaml';
     }
 
     getRecallConfig() {

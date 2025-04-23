@@ -1,11 +1,11 @@
 {
-  "name": "kkp-plugin",
+  "name": "sp-plugin",
   "version": "1.0.0",
   "description": "kk need P",
   "main": "index.js",
   "type": "module",
   "keywords": [],
-  "author": "kkp",
+  "author": "sp",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.4.0"

@@ -26,7 +26,7 @@ export class MagnetLinkFetcher extends plugin {
     }
 
     getRecallConfig() {
-        const path = './plugins/kkp-plugin/config/recall.yaml';
+        const path = './plugins/sp-plugin/config/recall.yaml';
         const fileContents = fs.readFileSync(path, 'utf8');
         return YAML.parse(fileContents);
     }
@@ -127,7 +127,7 @@ export class MagnetLinkFetcher extends plugin {
     }
 
     async modifyImageWithPython(imageBuffer, imageName) {
-        const tempImagePath = `./plugins/kkp-plugin/temp/temp_${Date.now()}_${imageName}.jpg`;
+        const tempImagePath = `./plugins/sp-plugin/temp/temp_${Date.now()}_${imageName}.jpg`;
         const cleanUp = () => {
             if (fs.existsSync(tempImagePath)) {
                 fs.unlinkSync(tempImagePath);
@@ -137,7 +137,7 @@ export class MagnetLinkFetcher extends plugin {
         try {
             fs.writeFileSync(tempImagePath, imageBuffer);
             const { stdout } = await execFileAsync(pythonCommand, [
-                './plugins/kkp-plugin/modify_image.py',
+                './plugins/sp-plugin/modify_image.py',
                 tempImagePath
             ]);
 
