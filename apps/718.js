@@ -28,44 +28,11 @@ export class VideoSearch extends plugin {
 
         // 定义多个备用URL
         this.videoUrls = [
-            //'https://apple.zuiniude.xyz',
-            //'https://scout.zuiniude.xyz',
-            //'https://www.718yule.com',
             "https://risky.zuiniude.xyz",
             "https://cloud.zuiniude.xyz",
             "https://fence.zuiniude.xyz",
             "https://plane.zuiniude.xyz",
             "https://blend.zuiniude.xyz",
-            "https://clout.zuiniude.xyz",
-            "https://roast.zuiniude.xyz",
-            "https://fizzy.zuiniude.xyz",
-            "https://roast.zuiniude.xyz",
-            "https://spunk.zuiniude.xyz",
-            "https://giddy.liuliangqifei.xyz",
-            "https://chuck.liuliangqifei.xyz",
-            "https://whiff.liuliangqifei.xyz",
-            "https://light.liuliangqifei.xyz",
-            "https://stash.liuliangqifei.xyz",
-            "https://grain.liuliangqifei.xyz",
-            "https://fence.liuliangqifei.xyz",
-            "https://flame.kuaidianlaill.com",
-            "https://plume.liuliangqifei.xyz",
-            "https://stark.liuliangqifei.xyz",
-            "https://scarf.kuaidianlaill.com",
-            "https://slope.liuliangqifei.xyz",
-            "https://chess.kuaidianlaill.com",
-            "https://gravy.kuaidianlaill.com",
-            "https://crush.kuaidianlaill.com",
-            "https://crush.kuaidianlaill.com",
-            "https://fling.kuaidianlaill.com",
-            "https://creek.liuliangqifei.xyz",
-            "https://chest.kuaidianlaill.com",
-            "https://whale.kuaidianlaill.com",
-            "https://flare.kuaidianlaill.com",
-            "https://spark.kuaidianlaill.com",
-            "https://brave.kuaidianlaill.com",
-            "https://swarm.kuaidianlaill.com",
-            "https://swish.kuaidianlaill.com",
         ]
         // 定义排除文章 ID 的列表
         this.excludedArticleIds = [
@@ -193,8 +160,8 @@ export class VideoSearch extends plugin {
 
                 // 允许图片加载
                 await page.setRequestInterception(true)
-                page.on("request", (req) => {
-                    if (["stylesheet", "font"].includes(req.resourceType())) {
+                page.on('request', req => {
+                    if (['stylesheet', 'font'].includes(req.resourceType())) {
                         req.abort()
                     } else {
                         req.continue()
@@ -205,15 +172,14 @@ export class VideoSearch extends plugin {
                 let retries = 3
                 while (retries--) {
                     try {
-                        // 去掉 waitUntil 选项，等待所有资源加载完成
                         await page.goto(url, {
-                            timeout: 10000000,
+                            timeout: 15000,
                             waitUntil: "networkidle2"
                         })
-                        break
+                        break;
                     } catch (err) {
-                        if (retries === 0) throw err
-                        await new Promise((r) => setTimeout(r, 10000000))
+                        if (retries === 0) throw err;
+                        await new Promise(r => setTimeout(r, 15000))
                     }
                 }
 
@@ -256,13 +222,13 @@ export class VideoSearch extends plugin {
                         }
 
                         // 提取所有图片的src属性
-                        const imgElements = document.querySelectorAll('img[src^="blob:"]')
-                        imgElements.forEach((img) => {
-                            const imgUrl = img.getAttribute("src")
+                        const imgElements = document.querySelectorAll('img[src^="blob:"]');
+                        imgElements.forEach(img => {
+                            const imgUrl = img.getAttribute('src');
                             if (imgUrl) {
-                                result.images.push(imgUrl)
+                                result.images.push(imgUrl);
                             }
-                        })
+                        });
 
                         // 提取并过滤文章内容
                         const excludeKeywords = [
@@ -431,24 +397,25 @@ export class VideoSearch extends plugin {
                         try {
                             // 获取blob数据并转换为base64
                             const base64 = await page.evaluate(async (url) => {
-                                const response = await fetch(url)
-                                const blob = await response.blob()
+                                const response = await fetch(url);
+                                const blob = await response.blob();
                                 return new Promise((resolve) => {
-                                    const reader = new FileReader()
-                                    reader.onloadend = () => resolve(reader.result)
-                                    reader.readAsDataURL(blob)
-                                })
-                            }, blobUrl)
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.readAsDataURL(blob);
+                                });
+                            }, blobUrl);
 
                             // 添加图片到转发消息节点
-                            images.push({
-                                type: "image",
-                                data: {
-                                    file: base64
-                                }
-                            })
+                            forwardNodes.push({
+                                user_id: e.user_id,
+                                nickname: e.sender.nickname,
+                                message: [
+                                    { type: 'image', file: base64 }
+                                ]
+                            });
                         } catch (err) {
-                            logger.error("处理blob图片失败:", err)
+                            console.error('处理blob图片失败:', err);
                         }
                     }
                 }
