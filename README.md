@@ -3,10 +3,6 @@
 安装
 
 ```bash
-git clone https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plugin/
-```
-
-```bash
 git clone https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
 ```
 
