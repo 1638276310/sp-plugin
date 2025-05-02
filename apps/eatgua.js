@@ -764,7 +764,7 @@ export class VideoSearch extends plugin {
 
         // 尝试所有备用URL
         for (const baseUrl of this.videoUrls) {
-            const archiveUrl = `${baseUrl}/videoUrls/archives.html`;
+            const archiveUrl = `${baseUrl}/archives.html`;
             try {
                 const page = await browser.newPage();
                 await page.setUserAgent(
