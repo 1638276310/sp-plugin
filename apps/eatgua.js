@@ -305,7 +305,8 @@ export class VideoSearch extends plugin {
         // if (!e.isGroup) return;
 
         if (this.allArticleIds.length === 0) {
-            await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, recallMsg: 60 });
+            // await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, recallMsg: 60 });
+            await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, });
             return;
         }
 
@@ -313,7 +314,8 @@ export class VideoSearch extends plugin {
         const randomIndex = Math.floor(Math.random() * this.allArticleIds.length);
         const randomVideoId = this.allArticleIds[randomIndex];
 
-        await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, recallMsg: 60 });
+        await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, });
 
         // 调用原有的处理函数
         await this.processVideoSearch({
@@ -332,11 +334,13 @@ export class VideoSearch extends plugin {
 
         // 检查视频 ID 是否在排除列表中
         if (this.excludedArticleIds.includes(numericVideoId)) {
-            await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true, recallMsg: 60 });
+            // await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true, recallMsg: 60 });
+            await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true,  });
             return;
         }
 
-        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        await e.reply("正在搜索，请稍等...", false, { at: true,  });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -651,14 +655,16 @@ export class VideoSearch extends plugin {
         }
 
         await browser.close();
-        await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
+        await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, });
     }
 
     async processSearchQuery(e) {
         const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
         if (!keyword) return;
     
-        await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true, recallMsg: 60 });
+        await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true,  });
     
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -746,14 +752,16 @@ export class VideoSearch extends plugin {
         }
     
         await browser.close();
-        await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true, recallMsg: 60 });
+        await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true,  });
     }
 
     async getPastArticles(e) {
         const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
         if (!count) return;
 
-        await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true, recallMsg: 60 });
+        await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true,  });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -824,10 +832,12 @@ export class VideoSearch extends plugin {
                 // 构建回复消息
                 let replyMessage = `以下是 ${count} 个往期文章的信息:\n`;
                 pastArticles.forEach((article, index) => {
-                    replyMessage += `${index + 1}. 年份: ${article.year}\n   ID: ${article.id}\n   链接: ${article.link}\n`;
+                    replyMessage += `${index + 1}. 年份: ${article.year}\n   ID: ${article.id}\n   `;
                 });
 
-                await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
+                // await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
+                await e.reply(replyMessage, false, { at: true,  });
+
 
                 // 解析文章内容
                 for (const article of pastArticles) {
@@ -846,6 +856,7 @@ export class VideoSearch extends plugin {
         }
 
         await browser.close();
-        await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
+        // await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
+        await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true,  });
     }
 }
