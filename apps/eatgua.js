@@ -4,6 +4,9 @@ import { segment } from "oicq"
 import fs from "fs"
 import path from "path"
 
+// Author:寂寞沙洲冷
+// Url：https://github.com/1638276310/sp-plugin
+
 
 export class VideoSearch extends plugin {
     constructor() {
