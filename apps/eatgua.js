@@ -345,7 +345,6 @@ export class VideoSearch extends plugin {
         }
 
         // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-        await e.reply("正在搜索，请稍等...", false, { at: true,  });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
