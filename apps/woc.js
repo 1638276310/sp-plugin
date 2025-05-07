@@ -35,7 +35,7 @@ export class WocPlugin extends plugin {
             this.e.reply("[安全限制] 请勿私聊使用本指令", true);
             return false;
         }
-        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         const currentGroup = Number(this.e.group_id);
         
         const cdKey = `Yz:woc:${currentGroup}`;
