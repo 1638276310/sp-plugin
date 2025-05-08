@@ -282,9 +282,10 @@ export class VideoSearch extends plugin {
                 "示例：(#)吃瓜123",
                 "",
                 "新增功能：",
+                "(#)吃瓜[文章ID] - 获取指定文章的视频m3u8地址",
                 "(#)随机吃瓜 - 随机获取一个可用的视频",
                 "(#)吃瓜搜索[关键词] - 搜索相关文章(最多解析前5个结果)",
-                "(#)吃瓜xx个往期 - 获取指定数量的往期文章",
+                "(#)吃瓜x个往期 - 获取指定数量的往期文章",
                 "",
                 "⚠️ 请遵守相关法律法规",
                 "",
@@ -333,6 +334,7 @@ export class VideoSearch extends plugin {
         // if (!e.isGroup) return;
         const videoId = e.msg.match(/^#?吃瓜\s*(\S+)$/)?.[1]?.trim();
         if (!videoId) return;
+        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
         // 将 videoId 转换为数字类型
         const numericVideoId = parseInt(videoId, 10);
@@ -344,7 +346,7 @@ export class VideoSearch extends plugin {
             return;
         }
 
-        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
