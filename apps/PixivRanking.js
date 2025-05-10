@@ -83,7 +83,7 @@ export class DailyRankImageFetcher extends plugin {
 
     async _processDailyRank(e) {
         if (!e.isGroup) return;
-        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         const match = e.msg.match(this.rule.find(rule => e.msg.match(rule.reg)).reg);
         const numStr = match[1];
         const num = numStr ? Math.min(parseInt(numStr), 30) : 10;
