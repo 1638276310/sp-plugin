@@ -1,6 +1,6 @@
 import plugin from '../../../lib/plugins/plugin.js';
 
-export class sp_help extends plugin {
+export class sphelp extends plugin {
     constructor() {
         super({
             name: '涩批帮助',
