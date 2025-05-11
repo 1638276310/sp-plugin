@@ -326,7 +326,7 @@ export class VideoSearch extends plugin {
             return;
         }
 
-        await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+        // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -818,7 +818,7 @@ export class VideoSearch extends plugin {
                 // 构建回复消息
                 let replyMessage = `以下是 ${count} 个往期文章的信息:\n`;
                 pastArticles.forEach((article, index) => {
-                    replyMessage += `${index + 1}. 年份: ${article.year}\n   ID: ${article.id}\n   `;
+                    replyMessage += `${index + 1}. 年份: ${article.year}\n   ID: ${article.id}   `;
                 });
 
                 // await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
