@@ -32,7 +32,7 @@ export class ArtistDetails extends plugin {
     }
 
     async processArtist(e) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
 
         try {

@@ -24,7 +24,7 @@ export class MagnetLink extends plugin {
     }
 
     async magnetHelp(e) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         let helpText = "#磁力猫支持搜索格式  #磁力猫[搜索内容] [全部/影视/音乐/图像/文档/压缩包/安装包/其他] [相关度/文件大小/添加时间/热度/最近下载] [结果数量]\n"
         helpText += "如#磁力猫ipx  #磁力猫ipx 全部 热度 20  #磁力猫ipx 影视 添加时间\n\n"
         helpText += "注意：搜索结果可能包含成人内容，请谨慎使用"
@@ -32,7 +32,7 @@ export class MagnetLink extends plugin {
     }
 
     async processMagnetLink(e) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         // 指定撤回消息
         await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         let match = e.msg.match(/^#?磁力猫\s*(\S+)(\s+(\S+))?(\s+(\S+))?(\s+(\d+))?$/);

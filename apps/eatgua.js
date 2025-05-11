@@ -17,10 +17,6 @@ export class VideoSearch extends plugin {
             priority: "718",
             rule: [
                 {
-                    reg: "^#?718帮助$",
-                    fnc: "videoHelp"
-                },
-                {
                     reg: "^#?吃瓜更新$",
                     fnc: "processVideoUpdate"
                 },
@@ -59,7 +55,8 @@ export class VideoSearch extends plugin {
 
         // 加载所有文章ID
         this.allArticleIds = [
-                "20165", "20166", "20167", "20168", "20169", "20170", "20171", "20172", "20173", "20174", "20175", "20176", //"20177", "20178", "20179",
+                "20180", "20181", "20182", "20183", "20184", //"20185", "20186", "20187", "20188", "20189", "20190", "20191", "20192", "20193", "20194",
+                "20165", "20166", "20167", "20168", "20169", "20170", "20171", "20172", "20173", "20174", "20175", "20176", "20177", "20178", "20179",
                 "20150", "20151", "20152", "20153", "20154", "20155", "20156", "20157", "20158", "20159", "20160", "20161", "20162", "20163", "20164",
                 "20135", "20136", "20137", "20138", "20139", "20140", "20141", "20142", "20143", "20144", "20145", "20146", "20147", "20148", "20149",
                 "20134", "20133", "20132", "20131", "20130", "20129", "20128", "20127", "20126", "20125", "20124", "20123", "20111", "20120", "20122", 
@@ -273,14 +270,6 @@ export class VideoSearch extends plugin {
         ].filter(id => !this.excludedArticleIds.includes(id));
     }
 
-
-    async videoHelp(e) {
-        // if (!e.isGroup) return
-        await this.reply(
-            await e.reply([segment.image("./config/help.jpg"), "涩批帮助"])
-        )
-    }
-
     async processVideoUpdate(e) {
         // if (!e.isGroup) return
         //保留代码，吃瓜更新命令，后续添加
@@ -323,6 +312,12 @@ export class VideoSearch extends plugin {
         if (this.excludedArticleIds.includes(numericVideoId)) {
             // await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true, recallMsg: 60 });
             await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true,  });
+            return;
+        }
+
+        // 检查视频 ID 是否在 allArticleIds 中
+        if (!this.allArticleIds.includes(videoId)) {
+            await e.reply("该ID不存在", false, { at: true });
             return;
         }
 
@@ -715,10 +710,10 @@ export class VideoSearch extends plugin {
                 // 构建回复消息
                 let replyMessage = `🔍 包含关键词 "${keyword}" 的文章搜索结果：\n\n`;
                 searchResults.slice(0, 10).forEach((result, index) => {
-                    replyMessage += `${index + 1}. **${result.title}**\n   📌 ID: ${result.id}\n   🔗 链接: ${result.link}\n\n`;
+                    replyMessage += `${index + 1}. **${result.title}**\n   📌 ID: ${result.id}\n  `;
                 });
     
-                await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
+                await e.reply(replyMessage, false, {});
     
                 // 只解析前5个搜索结果中的文章
                 const topResults = searchResults.slice(0, 5);
@@ -818,11 +813,11 @@ export class VideoSearch extends plugin {
                 // 构建回复消息
                 let replyMessage = `以下是 ${count} 个往期文章的信息:\n`;
                 pastArticles.forEach((article, index) => {
-                    replyMessage += `${index + 1}. 年份: ${article.year}\n   ID: ${article.id}   `;
+                    replyMessage += `${index + 1}. 标题: ${article.link}\n  ID: ${article.id}\n   `;
                 });
 
                 // await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
-                await e.reply(replyMessage, false, { at: true,  });
+                await e.reply(replyMessage, false, {});
 
 
                 // 解析文章内容

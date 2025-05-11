@@ -88,13 +88,13 @@ export class SetuImageFetcher extends plugin {
     }
 
     async _processSetuImages(e) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
         // this.deleteTempFiles();
         const [, numStr, tag] = e.msg.match(this.rule.find(rule => e.msg.match(rule.reg)).reg);
         const num = parseInt(numStr);
 
-        if (num > 20) {
+        if (num > 30) {
             await e.reply("你想冲死吗？");
             return;
         }

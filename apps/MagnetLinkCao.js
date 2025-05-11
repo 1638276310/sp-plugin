@@ -30,7 +30,7 @@ import puppeteer from 'puppeteer';
         }
 
     async MagnetLinkcao(e) {
-        if (!e.isGroup) return;
+        // if (!e.isGroup) return;
         const match = e.msg.match(/^#?磁力草\s*(\S+)(?:\s+(\S+))?$/);
         if (!match) {
             return;
