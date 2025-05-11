@@ -9,7 +9,7 @@ export class sp_help extends plugin {
             priority: '5001',
             rule: [
                 {
-                    reg: '^#sp帮助$', 
+                    reg: '^#?sp帮助$', 
                     fnc: 'sp_help'
                 }
             ]
