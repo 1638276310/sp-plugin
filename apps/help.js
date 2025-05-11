@@ -17,7 +17,7 @@ export class sp_help extends plugin {
     }
     async sp_help(e) {
         await this.reply(
-                    await e.reply([segment.image("./config/help.jpg"), "涩批帮助"])
+                    await e.reply([segment.image("./config/help.png"), "涩批帮助"])
         )
     }
 }
