@@ -15,9 +15,11 @@ export class sphelp extends plugin {
             ]
         });
     }
-    async sp_help(e) {
-        await this.reply(
-                    await e.reply([segment.image("https://ps.ssl.qhimg.com/t027f53f1cdfbdeef2c.jpg")])
-        )
+async sp_help(e) {
+    try {
+        await this.reply([segment.image("https://ps.ssl.qhimg.com/t027f53f1cdfbdeef2c.jpg")]);
+    } catch (error) {
+        console.error('发送图片消息时出错:', error);
     }
+}
 }
