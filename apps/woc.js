@@ -115,9 +115,7 @@ export class WocPlugin extends plugin {
             }));
 
             const forwardMsg = await Bot.makeForwardMsg(messages);
-            await this.e.reply(forwardMsg, false, {
-                recallMsg: this.config.deleteMsg
-            });
+            await this.e.reply(forwardMsg);
         } catch (error) {
             console.error(`图片发送失败：${error.message}`);
             this.e.reply("图片发送过程中出现错误", true);
