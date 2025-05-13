@@ -32,4 +32,4 @@ pacman -S python-pillow
 
 ## ✨ 功能    欢迎加群991639461
 
-![帮助图](https://ps.ssl.qhimg.com/t027f53f1cdfbdeef2c.jpg)
+![帮助图](config/help.png)
