@@ -541,9 +541,17 @@ export class VideoSearch extends plugin {
                         return null
                     }
                 })
+                // 原有逻辑：🈚️视频即解析失败不发送信息
+                // if (!pageInfo || !pageInfo.videoUrl) {
+                //     throw new Error("未找到视频地址")
+                // }
 
-                if (!pageInfo || !pageInfo.videoUrl) {
-                    throw new Error("未找到视频地址")
+                // 修改后任意其一🈶️即可发送
+                if (!pageInfo || 
+                    (!pageInfo.videoUrl && 
+                        pageInfo.articleContent.length === 0 && 
+                        pageInfo.images.length === 0)) {
+                    throw new Error("未找到任何可用的内容（视频、文字或图片）")
                 }
 
                 // 清理URL
@@ -559,19 +567,39 @@ export class VideoSearch extends plugin {
                 // 构建转发消息节点
                 const forwardNodes = [];
 
+                if(pageInfo){
+                    let infoMsg = `✅ 内容获取成功！ \n 🆔 视频ID: ${videoId}\n`;
+                    if(pageInfo.title){
+                        infoMsg += ` 📝 标题: ${pageInfo.title}\n`;
+                    }
+                    if(pageInfo.publishTime){
+                        infoMsg += ` 📅 发布时间: ${pageInfo.publishTime}\n`;
+                    }
+                    if(cleanUrl){
+                        infoMsg += ` 🔗 视频地址: ${cleanUrl} \n`;
+                    }
+                }
+                //原有转发消息逻辑
                 // 添加基本信息节点
+                // forwardNodes.push({
+                //     user_id: e.user_id,
+                //     nickname: e.sender.nickname,
+                //     message: [
+                //         `✅ 视频m3u8地址获取成功！\n` +
+                //         `🆔 视频ID: ${videoId}\n` +
+                //         (pageInfo.title ? ` 📝标题: ${pageInfo.title}\n` : '') +
+                //         (pageInfo.publishTime ? ` 📅发布时间: ${pageInfo.publishTime}\n` : '') +
+                //         ` 🔗视频地址:\n${cleanUrl}\n` +
+                //         ` ℹ️ 请自行下载视频\n` +
+                //         ` 📛 请勿用于非法用途`
+                //     ]
+                // });
+
+                // 修改后的转发消息逻辑
                 forwardNodes.push({
                     user_id: e.user_id,
                     nickname: e.sender.nickname,
-                    message: [
-                        `✅ 视频m3u8地址获取成功！\n` +
-                        `🆔 视频ID: ${videoId}\n` +
-                        (pageInfo.title ? ` 📝标题: ${pageInfo.title}\n` : '') +
-                        (pageInfo.publishTime ? ` 📅发布时间: ${pageInfo.publishTime}\n` : '') +
-                        ` 🔗视频地址:\n${cleanUrl}\n` +
-                        ` ℹ️ 请自行下载视频\n` +
-                        ` 📛 请勿用于非法用途`
-                    ]
+                    message: [infoMsg + ` 📛 请勿用于非法用途`]
                 });
 
                 // 添加文章内容节点（如果有内容）
@@ -579,7 +607,7 @@ export class VideoSearch extends plugin {
                     forwardNodes.push({
                         user_id: e.user_id,
                         nickname: e.sender.nickname,
-                        message: [" 📖文章内容:"]
+                        message: ["📖 文章内容:"]
                     });
 
                     pageInfo.articleContent.forEach(content => {
@@ -590,13 +618,22 @@ export class VideoSearch extends plugin {
                         });
                     });
                 }
-
+                //原有转发消息逻辑
                 // 添加图片节点（如果有图片）
-                if (pageInfo.images && pageInfo.images.length > 0) {
+                // if (pageInfo.images && pageInfo.images.length > 0) {
+                //     forwardNodes.push({
+                //         user_id: e.user_id,
+                //         nickname: e.sender.nickname,
+                //         message: [" 🖼️文章图片:"]
+                //     });
+
+                //现有转发消息逻辑
+
+                if(pageInfo.images?.length > 0){
                     forwardNodes.push({
                         user_id: e.user_id,
                         nickname: e.sender.nickname,
-                        message: [" 🖼️文章图片:"]
+                        message: ["🖼️ 文章图片:"]  
                     });
 
                     // 获取图片的base64编码并添加到转发消息
@@ -637,7 +674,9 @@ export class VideoSearch extends plugin {
 
         await browser.close();
         // await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
-        await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, });
+        // await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, });
+        // ▼▼▼ 替换以下代码 ▼▼▼
+        await e.reply(`未找到有效内容（视频/文字/图片），错误信息: ${lastError.message}`, false, { at: true });
     }
 
     async processSearchQuery(e) {
