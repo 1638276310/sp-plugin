@@ -583,7 +583,7 @@ export class VideoSearch extends plugin {
 
                 // 防止空消息
                 if (!infoMsg.trim()) {
-                    infoMsg = "✅ 内容获取成功，但未解析到详细信息";
+                    infoMsg = "✅ 内容获取成功，但未解析到详细信息\n";
                 }
                 //原有转发消息逻辑
                 // 添加基本信息节点
