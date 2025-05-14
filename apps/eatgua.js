@@ -566,18 +566,24 @@ export class VideoSearch extends plugin {
 
                 // 构建转发消息节点
                 const forwardNodes = [];
-
+                // 初始化 infoMsg
+                let infoMsg = "";
                 if(pageInfo){
                     let infoMsg = `✅ 内容获取成功！ \n 🆔 视频ID: ${videoId}\n`;
                     if(pageInfo.title){
-                        infoMsg += ` 📝 标题: ${pageInfo.title}\n`;
+                        infoMsg += ` 📝 标题: ${pageInfo.title && pageInfo.title.trim()}\n`;
                     }
                     if(pageInfo.publishTime){
-                        infoMsg += ` 📅 发布时间: ${pageInfo.publishTime}\n`;
+                        infoMsg += ` 📅 发布时间: ${pageInfo.publishTime && pageInfo.publishTime.trim()}\n`;
                     }
                     if(cleanUrl){
-                        infoMsg += ` 🔗 视频地址: ${cleanUrl} \n`;
+                        infoMsg += ` 🔗 视频地址: ${cleanUrl && cleanUrl.trim()} \n`;
                     }
+                }
+
+                // 防止空消息
+                if (!infoMsg.trim()) {
+                    infoMsg = "✅ 内容获取成功，但未解析到详细信息";
                 }
                 //原有转发消息逻辑
                 // 添加基本信息节点
