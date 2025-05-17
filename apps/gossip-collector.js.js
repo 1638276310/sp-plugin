@@ -639,24 +639,22 @@ export class VideoSearch extends plugin {
     async processSearchQuery(e) {
         const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
         if (!keyword) return;
-    
-        // await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true, recallMsg: 60 });
-        await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true,  });
-    
+
+        await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, { at: true });
+
         const browser = await puppeteer.launch({
             args: ["--no-sandbox", "--disable-setuid-sandbox"],
             headless: "new"
         });
-    
+
         let lastError = null;
-    
+
         for (const baseUrl of this.videoUrls) {
             const searchUrl = `${baseUrl}/search/${encodeURIComponent(keyword)}`;
             try {
                 const page = await browser.newPage();
                 await page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-    
-                // 拦截不必要的请求（如 CSS、字体）
+
                 await page.setRequestInterception(true);
                 page.on('request', req => {
                     if (['stylesheet', 'font'].includes(req.resourceType())) {
@@ -665,8 +663,7 @@ export class VideoSearch extends plugin {
                         req.continue();
                     }
                 });
-    
-                // 重试逻辑（3次）
+
                 let retries = 3;
                 while (retries--) {
                     try {
@@ -680,46 +677,55 @@ export class VideoSearch extends plugin {
                         await new Promise(r => setTimeout(r, 60000));
                     }
                 }
-    
-                // 提取搜索结果（在浏览器环境中执行）
+
                 const searchResults = await page.evaluate(() => {
                     const articles = Array.from(document.querySelectorAll('article'));
                     return articles.map(article => {
                         const titleElement = article.querySelector('h2.post-card-title');
                         const linkElement = article.querySelector('a[href^="/archives/"]');
-                        
+
                         if (!titleElement || !linkElement) return null;
-    
+
                         const link = linkElement.href;
                         const title = titleElement.textContent.trim();
                         const idMatch = link.match(/\/archives\/(\d+)/);
                         const id = idMatch ? idMatch[1] : null;
-    
+
                         return id && title ? { id, title, link } : null;
-                    }).filter(Boolean); // 过滤掉 null 值
+                    }).filter(Boolean);
                 });
-    
+
                 if (searchResults.length === 0) {
                     throw new Error("未找到相关文章");
                 }
-    
-                // 构建回复消息
-                let replyMessage = `🔍 包含关键词 "${keyword}" 的文章搜索结果：\n\n`;
-                searchResults.slice(0, 30).forEach((result, index) => {
-                    replyMessage += `${index + 1}. **${result.title}**\n   📌 ID: ${result.id}\n  `;
+
+                // 构建转发消息节点
+                const forwardNodes = [];
+
+                // 添加标题节点
+                forwardNodes.push({
+                    user_id: e.user_id,
+                    nickname: e.sender.nickname,
+                    message: [`🔍 包含关键词 "${keyword}" 的文章搜索结果：`]
                 });
-    
-                await e.reply(replyMessage, false, {});
-    
-                // 只解析前5个搜索结果中的文章
-                const topResults = searchResults.slice(0, 5);
-                for (const result of topResults) {
-                    await this.processVideoSearch({
-                        ...e,
-                        msg: `#吃瓜 ${result.id}`
+
+                // 添加搜索结果节点
+                searchResults.slice(0, 30).forEach((result, index) => {
+                    forwardNodes.push({
+                        user_id: e.user_id,
+                        nickname: e.sender.nickname,
+                        message: [
+                            `${index + 1}. ${result.title}`,
+                            `📌 ID: ${result.id}`,
+                        ]
                     });
-                }
-    
+                });
+
+                // 发送转发消息
+                const forwardMessage = await Bot.makeForwardMsg(forwardNodes);
+                await e.reply(forwardMessage);
+
+                await page.close();
                 await browser.close();
                 return;
             } catch (error) {
@@ -727,10 +733,9 @@ export class VideoSearch extends plugin {
                 logger.error(`尝试 URL ${searchUrl} 失败:`, error);
             }
         }
-    
+
         await browser.close();
-        // await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true, recallMsg: 60 });
-        await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true,  });
+        await e.reply(`❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"}`, false, { at: true });
     }
 
     async getPastArticles(e) {
