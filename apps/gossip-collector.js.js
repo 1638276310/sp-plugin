@@ -345,7 +345,9 @@ export class VideoSearch extends plugin {
                             publishTime: null,
                             videoUrl: null,
                             images: [],
-                            articleContent: []
+                            articleContent: [],
+                            publishedTime: null, // 新增创建时间
+                            modifiedTime: null,   // 新增最后修改时间
                         }
 
                         // 提取标题
@@ -358,6 +360,17 @@ export class VideoSearch extends plugin {
                         const timeElement = document.querySelector("time")
                         if (timeElement) {
                             result.publishTime = timeElement.textContent.trim()
+                        }
+
+                        // 提取文章的创建时间和最后修改时间
+                        const publishedTimeMeta = document.querySelector('meta[property="article:published_time"]');
+                        if (publishedTimeMeta) {
+                            result.publishedTime = publishedTimeMeta.content;
+                        }
+
+                        const modifiedTimeMeta = document.querySelector('meta[property="article:modified_time"]');
+                        if (modifiedTimeMeta) {
+                            result.modifiedTime = modifiedTimeMeta.content;
                         }
 
                         // 提取DPlayer配置中的video.url
@@ -537,13 +550,15 @@ export class VideoSearch extends plugin {
                     user_id: e.user_id,
                     nickname: e.sender.nickname,
                     message: [
-                        `✅ 视频m3u8地址获取成功！\n` +
-                        `🆔 视频ID: ${videoId}\n` +
-                        (pageInfo.title ? ` 📝标题: ${pageInfo.title}\n` : '') +
-                        (pageInfo.publishTime ? ` 📅发布时间: ${pageInfo.publishTime}\n` : '') +
-                        ` 🔗视频地址:\n${cleanUrl}\n` +
-                        ` ℹ️ 请自行下载视频\n` +
-                        ` 📛 请勿用于非法用途`
+                        `✅视频m3u8地址获取成功！\n` +
+                        `🆔视频ID: ${videoId}\n` +
+                        (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : '') +
+                        (pageInfo.publishTime ? `📅发布时间: ${pageInfo.publishTime}\n` : '') +
+                        (pageInfo.publishedTime ? `📅创建时间: ${pageInfo.publishedTime}\n` : '') + // 新增创建时间
+                        (pageInfo.modifiedTime ? `📅最后修改时间: ${pageInfo.modifiedTime}\n` : '') + // 新增最后修改时间
+                        `🔗视频地址:\n${cleanUrl}\n` +
+                        `ℹ️请自行下载视频\n` +
+                        `📛请勿用于非法用途`
                     ]
                 });
 
@@ -569,7 +584,7 @@ export class VideoSearch extends plugin {
                     forwardNodes.push({
                         user_id: e.user_id,
                         nickname: e.sender.nickname,
-                        message: [" 🖼️文章图片:"]
+                        message: ["🖼️文章图片:"]
                     });
 
                     // 获取图片的base64编码并添加到转发消息
@@ -706,7 +721,7 @@ export class VideoSearch extends plugin {
                 forwardNodes.push({
                     user_id: e.user_id,
                     nickname: e.sender.nickname,
-                    message: [`🔍 包含关键词 "${keyword}" 的文章搜索结果：`]
+                    message: [`🔍包含关键词 "${keyword}" 的文章搜索结果：`]
                 });
 
                 // 添加搜索结果节点
@@ -715,7 +730,7 @@ export class VideoSearch extends plugin {
                         user_id: e.user_id,
                         nickname: e.sender.nickname,
                         message: [
-                            `${index + 1}. ${result.title}`,
+                            `${index + 1}. ${result.title}\n`,
                             `📌 ID: ${result.id}`,
                         ]
                     });
@@ -819,16 +834,7 @@ export class VideoSearch extends plugin {
 
                 // await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
                 await e.reply(replyMessage, false, {});
-
-
-                // 解析文章内容
-                for (const article of pastArticles) {
-                    await this.processVideoSearch({
-                        ...e,
-                        msg: `#吃瓜 ${article.id}`
-                    });
-                }
-
+                await page.close();
                 await browser.close();
                 return;
             } catch (error) {
