@@ -1,4 +1,4 @@
-import plugin from "../../../lib/plugins/plugin.js"
+import plugin from "../../lib/plugins/plugin.js"
 import puppeteer from "puppeteer"
 import { segment } from "oicq"
 import fs from "fs"
@@ -754,97 +754,112 @@ export class VideoSearch extends plugin {
     }
 
     async getPastArticles(e) {
-        const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
-        if (!count) return;
+    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
+    if (!count) return;
 
-        // await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true, recallMsg: 60 });
-        await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true,  });
+    await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, { at: true });
 
-        const browser = await puppeteer.launch({
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-            headless: "new"
-        });
+    const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        headless: "new"
+    });
 
-        let lastError = null;
+    let lastError = null;
 
-        // 尝试所有备用URL
-        for (const baseUrl of this.videoUrls) {
-            const archiveUrl = `${baseUrl}/archives.html`;
-            try {
-                const page = await browser.newPage();
-                await page.setUserAgent(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                );
+    for (const baseUrl of this.videoUrls) {
+        const archiveUrl = `${baseUrl}/archives.html`;
+        try {
+            const page = await browser.newPage();
+            await page.setUserAgent(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            );
 
-                // 允许图片加载
-                await page.setRequestInterception(true);
-                page.on('request', req => {
-                    if (['stylesheet', 'font'].includes(req.resourceType())) {
-                        req.abort();
-                    } else {
-                        req.continue();
-                    }
-                });
-
-                // 重试逻辑（3次）
-                let retries = 3;
-                while (retries--) {
-                    try {
-                        await page.goto(archiveUrl, {
-                            timeout: 60000,
-                            waitUntil: "networkidle2"
-                        });
-                        break;
-                    } catch (err) {
-                        if (retries === 0) throw err;
-                        await new Promise(r => setTimeout(r, 60000));
-                    }
+            await page.setRequestInterception(true);
+            page.on('request', req => {
+                if (['stylesheet', 'font'].includes(req.resourceType())) {
+                    req.abort();
+                } else {
+                    req.continue();
                 }
+            });
 
-                // 提取年份和文章链接
-                const archiveInfo = await page.evaluate(() => {
-                    const result = [];
-                    const yearElements = document.querySelectorAll('h3');
-                    yearElements.forEach(yearElement => {
-                        const year = yearElement.textContent.trim();
-                        const articleElements = yearElement.nextElementSibling.querySelectorAll('.brick a');
-                        articleElements.forEach(article => {
-                            const link = article.href;
-                            const idMatch = link.match(/\/archives\/(\d+)/);
-                            const id = idMatch ? idMatch[1] : null;
-                            if (id) {
-                                result.push({ year, id, link });
-                            }
-                        });
+            let retries = 3;
+            while (retries--) {
+                try {
+                    await page.goto(archiveUrl, {
+                        timeout: 60000,
+                        waitUntil: "networkidle2"
                     });
-                    return result;
-                });
+                    break;
+                } catch (err) {
+                    if (retries === 0) throw err;
+                    await new Promise(r => setTimeout(r, 60000));
+                }
+            }
 
-                const pastArticles = archiveInfo.slice(0, count);
+            await new Promise(resolve => setTimeout(resolve, 5000));
 
-                if (pastArticles.length === 0) {
-                    throw new Error("未找到往期文章");
+            const archiveInfo = await page.evaluate((count) => {
+                const result = [];
+                const brickElements = document.querySelectorAll('.brick a');
+                const actualCount = Math.min(count, brickElements.length);
+
+                for (let i = 0; i < actualCount; i++) {
+                    const brick = brickElements[i];
+                    const href = brick.getAttribute('href');
+                    const titleElement = brick.cloneNode(true); // 克隆节点以修改其内容
+                    const spanElement = titleElement.querySelector('span');
+                    if (spanElement) {
+                        spanElement.remove(); // 移除<span>标签
+                    }
+                    const title = titleElement.textContent.trim();
+                    const idMatch = href.match(/\/archives\/(\d+)/);
+                    const id = idMatch ? idMatch[1] : null;
+
+                    if (id) {
+                        result.push({ title, id, link: href });
+                    }
                 }
 
-                // 构建回复消息
-                let replyMessage = `以下是 ${count} 个往期文章的信息:\n`;
-                pastArticles.forEach((article, index) => {
-                    replyMessage += `${index + 1}. 标题: ${article.link}\n  ID: ${article.id}\n   `;
-                });
+                return result;
+            }, count);
 
-                // await e.reply(replyMessage, false, { at: true, recallMsg: 60 });
-                await e.reply(replyMessage, false, {});
-                await page.close();
-                await browser.close();
-                return;
-            } catch (error) {
-                lastError = error;
-                logger.error(`尝试URL ${archiveUrl} 失败:`, error);
+            if (archiveInfo.length === 0) {
+                throw new Error("未找到往期文章");
             }
-        }
 
-        await browser.close();
-        // await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
-        await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true,  });
+            const forwardNodes = [];
+
+            forwardNodes.push({
+                user_id: e.user_id,
+                nickname: e.sender.nickname,
+                message: [`以下是 ${archiveInfo.length} 个往期文章的信息：`]
+            });
+
+            archiveInfo.forEach((article, index) => {
+                forwardNodes.push({
+                    user_id: e.user_id,
+                    nickname: e.sender.nickname,
+                    message: [
+                        `${index + 1}. 📝标题: ${article.title}\n`,
+                        `🆔ID: ${article.id}\n`,
+                    ]
+                });
+            });
+
+            const forwardMessage = await Bot.makeForwardMsg(forwardNodes);
+            await e.reply(forwardMessage);
+
+            await page.close();
+            await browser.close();
+            return;
+        } catch (error) {
+            lastError = error;
+            logger.error(`尝试URL ${archiveUrl} 失败:`, error);
+        }
     }
+
+    await browser.close();
+    await e.reply(`未找到往期文章，请稍后重试。错误信息: ${lastError.message}`, false, { at: true });
+}
 }
