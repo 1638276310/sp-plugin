@@ -705,7 +705,7 @@ export class VideoSearch extends plugin {
     
                 // 构建回复消息
                 let replyMessage = `🔍 包含关键词 "${keyword}" 的文章搜索结果：\n\n`;
-                searchResults.slice(0, 10).forEach((result, index) => {
+                searchResults.slice(0, 30).forEach((result, index) => {
                     replyMessage += `${index + 1}. **${result.title}**\n   📌 ID: ${result.id}\n  `;
                 });
     
