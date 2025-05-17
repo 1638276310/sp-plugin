@@ -270,28 +270,7 @@ export class VideoSearch extends plugin {
 
 
     // 随机吃瓜功能
-    async randomVideoSearch(e) {
-        // if (!e.isGroup) return;
-
-        if (this.allArticleIds.length === 0) {
-            // await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, recallMsg: 60 });
-            await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, });
-            return;
-        }
-
-        // 随机选择一个ID
-        const randomIndex = Math.floor(Math.random() * this.allArticleIds.length);
-        const randomVideoId = this.allArticleIds[randomIndex];
-
-        // await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, recallMsg: 60 });
-        await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, });
-
-        // 调用原有的处理函数
-        await this.processVideoSearch({
-            ...e,
-            msg: `#吃瓜 ${randomVideoId}`
-        });
-    }
+    
 
     async processVideoSearch(e) {
         // if (!e.isGroup) return;
@@ -632,6 +611,29 @@ export class VideoSearch extends plugin {
         await browser.close();
         // await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, recallMsg: 60 });
         await e.reply(`未找到视频地址，请稍后重试。错误信息: ${lastError.message}`, false, { at: true, });
+    }
+
+    async randomVideoSearch(e) {
+        // if (!e.isGroup) return;
+
+        if (this.allArticleIds.length === 0) {
+            // await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, recallMsg: 60 });
+            await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true, });
+            return;
+        }
+
+        // 随机选择一个ID
+        const randomIndex = Math.floor(Math.random() * this.allArticleIds.length);
+        const randomVideoId = this.allArticleIds[randomIndex];
+
+        // await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, recallMsg: 60 });
+        await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, { at: true, });
+
+        // 调用原有的处理函数
+        await this.processVideoSearch({
+            ...e,
+            msg: `#吃瓜 ${randomVideoId}`
+        });
     }
 
     async processSearchQuery(e) {
