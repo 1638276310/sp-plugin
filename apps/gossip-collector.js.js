@@ -1,4 +1,4 @@
-import plugin from "../../lib/plugins/plugin.js"
+import plugin from "../../../lib/plugins/plugin.js"
 import puppeteer from "puppeteer"
 import { segment } from "oicq"
 import fs from "fs"
