@@ -9,7 +9,7 @@ export class sphelp extends plugin {
             priority: '5001',
             rule: [
                 {
-                    reg: '^#?sp帮助$', 
+                    reg: '^#?(sp|涩批|色批|色胚|涩胚)帮助$', 
                     fnc: 'sp_help'
                 }
             ]
@@ -17,7 +17,7 @@ export class sphelp extends plugin {
     }
 async sp_help(e) {
     try {
-        await this.reply([segment.image("https://ps.ssl.qhimg.com/t027f53f1cdfbdeef2c.jpg")]);
+        await this.reply([segment.image("./config/help.png")]);
     } catch (error) {
         console.error('发送图片消息时出错:', error);
     }
