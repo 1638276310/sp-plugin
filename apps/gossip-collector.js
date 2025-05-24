@@ -528,8 +528,8 @@ export class VideoSearch extends plugin {
                     }
                 })
 
-                if (!pageInfo || !pageInfo.videoUrl) {
-                    throw new Error("未找到视频地址")
+                if (!pageInfo.videoUrl && (!pageInfo.articleContent.length === 0 || !pageInfo.articleContent)&& (!pageInfo.images.length === 0 ||!pageInfo.images )) {
+                    throw new Error("未找到视频地址、文章正文内容和图片")
                 }
 
                 // 清理URL
