@@ -216,7 +216,7 @@ export class VideoSearch extends plugin {
                         const result = {
                             title: null,
                             publishTime: null,
-                            videoUrl: null,
+                            videoUrls: [],
                             images: [],
                             articleContent: [],
                             publishedTime: null,
@@ -235,17 +235,26 @@ export class VideoSearch extends plugin {
                         const modifiedTimeMeta = document.querySelector('meta[property="article:modified_time"]');
                         if (modifiedTimeMeta) result.modifiedTime = modifiedTimeMeta.content;
 
-                        const dplayer = document.querySelector(".dplayer");
-                        if (dplayer) {
-                            const config = JSON.parse(dplayer.getAttribute("data-config"));
-                            result.videoUrl = config.video?.url || null;
+                        const dplayers = document.querySelectorAll(".dplayer");
+                        if (dplayers.length > 0) {
+                            dplayers.forEach(dplayer => {
+                                try {
+                                    const config = JSON.parse(dplayer.getAttribute("data-config"));
+                                    if (config.video?.url) {
+                                        result.videoUrls.push(config.video.url);
+                                    }
+                                } catch (e) {
+                                    console.error("解析DPlayer配置失败:", e);
+                                }
+                            });
                         }
 
-                        if (!result.videoUrl) {
-                            const videoElement = document.querySelector("video.dplayer-video");
-                            if (videoElement) {
-                                result.videoUrl = videoElement.getAttribute("src") || null;
-                            }
+                        if (result.videoUrls.length === 0) {
+                            const videoElements = document.querySelectorAll("video.dplayer-video");
+                            videoElements.forEach(video => {
+                                const src = video.getAttribute("src");
+                                if (src) result.videoUrls.push(src);
+                            });
                         }
 
                         const imgElements = document.querySelectorAll('img[src^="blob:"]');
@@ -267,7 +276,7 @@ export class VideoSearch extends plugin {
                             if (imgUrl && !isAd) result.images.push(imgUrl);
                         });
 
-                        const excludeKeywords = [/* 原有排除关键词 */];
+                        const excludeKeywords = [];
 
                         document.querySelectorAll("p").forEach((p) => {
                             let isInComment = false;
@@ -298,31 +307,52 @@ export class VideoSearch extends plugin {
                     }
                 });
 
-                if (!pageInfo || (!pageInfo.videoUrl && pageInfo.articleContent.length === 0 && pageInfo.images.length === 0)) {
+                if (!pageInfo || (pageInfo.videoUrls.length === 0 && pageInfo.articleContent.length === 0 && pageInfo.images.length === 0)) {
                     throw new Error("未找到视频地址、文章正文内容和图片");
-                }
-
-                let cleanUrl = pageInfo.videoUrl;
-                if (parseInt(videoId) >= 19949) {
-                    cleanUrl = pageInfo.videoUrl;
-                } else if (pageInfo.videoUrl) {
-                    cleanUrl = pageInfo.videoUrl.replace(/\\\//g, "/").split("?")[0];
                 }
 
                 const forwardNodes = [{
                     user_id: e.user_id,
                     nickname: e.sender.nickname,
                     message: [
-                        `✅视频m3u8地址获取成功！\n` +
-                        `🆔视频ID: ${videoId}\n` +
+                        `✅视频信息获取成功！\n` +
+                        `🆔文章ID: ${videoId}\n` +
                         (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : '') +
                         (pageInfo.publishTime ? `📅发布时间: ${pageInfo.publishTime}\n` : '') +
                         (pageInfo.publishedTime ? `📅创建时间: ${pageInfo.publishedTime}\n` : '') +
                         (pageInfo.modifiedTime ? `📅最后修改时间: ${pageInfo.modifiedTime}\n` : '') +
-                        (cleanUrl ? `🔗视频地址:\n${cleanUrl}\n` : 'ℹ️未获取到视频地址\n') +
                         `📛请勿用于非法用途`
                     ]
                 }];
+
+                if (pageInfo.videoUrls.length > 0) {
+                    forwardNodes.push({
+                        user_id: e.user_id,
+                        nickname: e.sender.nickname,
+                        message: ["🔗视频地址列表:"]
+                    });
+                    
+                    pageInfo.videoUrls.forEach((url, index) => {
+                        let cleanUrl = url;
+                        if (parseInt(videoId) >= 19949) {
+                            cleanUrl = url;
+                        } else if (url) {
+                            cleanUrl = url.replace(/\\\//g, "/").split("?")[0];
+                        }
+                        
+                        forwardNodes.push({
+                            user_id: e.user_id,
+                            nickname: e.sender.nickname,
+                            message: [`${index + 1}. ${cleanUrl}`]
+                        });
+                    });
+                } else {
+                    forwardNodes.push({
+                        user_id: e.user_id,
+                        nickname: e.sender.nickname,
+                        message: ["ℹ️未获取到视频地址"]
+                    });
+                }
 
                 if (pageInfo.articleContent.length > 0) {
                     forwardNodes.push({
