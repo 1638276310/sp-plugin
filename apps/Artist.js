@@ -1,4 +1,3 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
 import { user } from '../config/api.js';
 

@@ -1,8 +1,7 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
 import fs from 'fs';
-import YAML from 'yaml';
 import path from 'path';
+import YAML from 'yaml';
 
 export class VideoFetcher extends plugin {
     constructor() {

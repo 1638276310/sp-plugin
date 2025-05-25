@@ -1,10 +1,9 @@
-import plugin from '../../../lib/plugins/plugin.js';
-import puppeteer from 'puppeteer';
+import { execFile } from 'child_process';
 import fs from 'fs';
+import puppeteer from 'puppeteer';
+import { promisify } from 'util';
 import YAML from 'yaml';
 import { magnetURL } from '../config/api.js';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';

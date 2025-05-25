@@ -1,9 +1,8 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
 import fs from 'fs';
-import YAML from 'yaml';
 import path from 'path';
-import { user, keyValue } from '../config/api.js';
+import YAML from 'yaml';
+import { user } from '../config/api.js';
 
 export class ArtistSubscription extends plugin {
     constructor() {

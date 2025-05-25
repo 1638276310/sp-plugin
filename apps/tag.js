@@ -1,10 +1,9 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
-import fs from 'fs';
-import YAML from 'yaml';
-import { pid, tag as fetchTag } from '../config/api.js';
 import { execFile } from 'child_process';
+import fs from 'fs';
 import path from 'path';
+import YAML from 'yaml';
+import { tag as fetchTag, pid } from '../config/api.js';
 
 const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
