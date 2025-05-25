@@ -349,11 +349,16 @@ export class VideoSearch extends plugin {
                 (pageInfo.publishTime
                   ? `📅发布时间: ${pageInfo.publishTime}\n`
                   : "") +
+                // 修改为
                 (pageInfo.publishedTime
-                  ? `📅创建时间: ${pageInfo.publishedTime}\n`
+                  ? `📅创建时间: ${pageInfo.publishedTime
+                      .replace("T", " T ")
+                      .replace(/\+.*$/, "")}\n`
                   : "") +
                 (pageInfo.modifiedTime
-                  ? `📅最后修改时间: ${pageInfo.modifiedTime}\n`
+                  ? `📅最后修改时间: ${pageInfo.modifiedTime
+                      .replace("T", " T ")
+                      .replace(/\+.*$/, "")}\n`
                   : "") +
                 `📛请勿用于非法用途`,
             ],
