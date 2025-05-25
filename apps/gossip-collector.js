@@ -274,104 +274,24 @@ export class VideoSearch extends plugin {
                             if (imgUrl && !isAd) result.images.push(imgUrl);
                         });
 
-                        // 提取并过滤文章内容
-                        const excludeKeywords = [
-                            "娱乐718",
-                            "娱乐 718",
-                            "最新地址",
-                            "官方吃瓜群",
-                            "点击加入",
-                            "点击下载",
-                            "下载",
-                            "看全集",
-                            "内有全集",
-                            "OωO",
-                            "|´・ω・)ノ",
-                            "ヾ(≧∇≦*)ゝ",
-                            "(☆ω☆)",
-                            "（╯‵□′）╯︵┴─┴",
-                            "￣﹃￣",
-                            "(/ω＼)",
-                            "∠( ᐛ 」∠)＿",
-                            "(๑•̀ㅁ•́ฅ)",
-                            "→_→",
-                            "୧(๑•̀⌄•́๑)૭",
-                            "٩(ˊᗜˋ*)و",
-                            "(ノ°ο°)ノ",
-                            "(´இ皿இ｀)",
-                            "⌇●﹏●⌇",
-                            "(ฅ´ω`ฅ)",
-                            "(╯°A°)╯︵○○○",
-                            "φ(￣∇￣o)",
-                            'ヾ(´･ ･｀｡)ノ"',
-                            "( ง ᵒ̌皿ᵒ̌)ง⁼³₌₃",
-                            "(ó﹏ò｡)",
-                            "Σ(っ °Д °;)っ",
-                            '( ,,´･ω･)ﾉ"(´っω･｀｡)',
-                            "╮(╯▽╰)╭",
-                            "o(*////▽////*)q",
-                            "＞﹏＜",
-                            '( ๑´•ω•) "(ㆆᴗㆆ)',
-                            "(｡•ˇ‸ˇ•｡)",
-                            "颜文字",
-                            "本网站包含有年龄限制的内容",
-                            "包括裸体和露骨色情素材的内容。",
-                            "点击继续即表示您确认您已年满 18",
-                            "岁",
-                            "或在您访问本网站时所在的司法管辖区已是成年人",
-                            "播放异常",
-                            "？请刷新",
-                            "发邮件获取",
-                            "最新网址",
-                            "👇",
-                            "长按复制保存",
-                            "718yule@pm.me",
-                            "更新完以后",
-                            "有兄弟反馈看不了",
-                            "请留言",
-                            "手机型号",
-                            "浏览器",
-                            "网络情况",
-                            "小编来解决",
-                            "吃瓜",
-                            "718",
-                            "永久地址",
-                            "立志挖掘网红反差婊",
-                            "萝莉最新",
-                            "最劲爆",
-                            "最硬核的吃瓜内容！",
-                            "记得分享给你的朋友",
-                            "一起嗨翻吃瓜圈！",
-                            "吃瓜718永久地址 (需翻墙访问)",
-                            "https://www.718yule.com",
-                            "Copyright",
-                            "©",
-                            "2025 吃瓜718",
-                            "Powered by",
-                            "吃瓜718",
-                        ]
+                        
 
-                        document.querySelectorAll("p").forEach((p) => {
-                            let isInComment = false;
-                            let parent = p.parentElement;
-
-                            while (parent) {
-                                if (parent.classList?.contains("comment-content")) {
-                                    isInComment = true;
-                                    break;
-                                }
-                                parent = parent.parentElement;
-                            }
-
-                            if (!isInComment) {
-                                const text = p.textContent.trim();
-                                if (text && !text.includes("视频播放异常") &&
-                                    !excludeKeywords.some(keyword => text.includes(keyword)) &&
-                                    !/^[^\u4e00-\u9fa5]*$/.test(text)) {
-                                    result.articleContent.push(text);
-                                }
-                            }
-                        });
+                        // 替换原来的文章内容提取代码
+const blockquote = document.querySelector('blockquote');
+if (blockquote) {
+    // 获取blockquote后面的所有同级元素
+    let nextElement = blockquote.nextElementSibling;
+    while (nextElement) {
+        if (nextElement.tagName === 'DIV') break; // 遇到DIV就停止
+        
+        if (nextElement.tagName === 'P') {
+            const text = nextElement.textContent.trim();
+            result.articleContent.push(text || '\n');
+        }
+        
+        nextElement = nextElement.nextElementSibling;
+    }
+}
 
                         return result;
                     } catch (e) {
