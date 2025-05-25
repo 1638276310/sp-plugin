@@ -1,6 +1,9 @@
-import { segment } from "oicq";
+// 插件名称：718吃瓜网视频搜索
+// 插件功能：从718吃瓜视频站提取视频m3u8地址和文章内容
+// 插件作者：@QQ1638276310
+// 插件主页：https://github.com/1638276310/sp-plugin
+
 import puppeteer from "puppeteer";
-import plugin from "../../../lib/plugins/plugin.js";
 
 export class VideoSearch extends plugin {
   constructor() {
