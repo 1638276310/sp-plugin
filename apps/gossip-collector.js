@@ -1,8 +1,6 @@
-import plugin from "../../lib/plugins/plugin.js"
-import puppeteer from "puppeteer"
 import { segment } from "oicq"
-import fs from "fs"
-import path from "path"
+import puppeteer from "puppeteer"
+import plugin from "../../../lib/plugins/plugin.js"
 
 export class VideoSearch extends plugin {
     constructor() {
@@ -440,7 +438,7 @@ export class VideoSearch extends plugin {
                         forwardNodes.push({
                             user_id: e.user_id,
                             nickname: e.sender.nickname,
-                            message: [content]
+                            message: content
                         });
                     });
                 }
