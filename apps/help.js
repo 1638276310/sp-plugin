@@ -1,3 +1,4 @@
+import plugin from '../../../lib/plugins/plugin.js';
 
 export class sphelp extends plugin {
     constructor() {

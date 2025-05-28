@@ -1,3 +1,4 @@
+import plugin from '../../../lib/plugins/plugin.js';
 import puppeteer from 'puppeteer';
 
 
