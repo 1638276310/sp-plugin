@@ -1,5 +1,5 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
+import plugin from '../../../lib/plugins/plugin.js';
 import { user } from '../config/api.js';
 
 export class ArtistDetails extends plugin {
@@ -64,7 +64,7 @@ export class ArtistDetails extends plugin {
                 });
             }
 
-            const forwardMsg = await e.group.makeForwardMsg(allMessages);
+            const forwardMsg = await Bot.makeForwardMsg(allMessages);
             await e.reply(forwardMsg);
         } catch (error) {
             if (error.message === "暂无权使用") {
