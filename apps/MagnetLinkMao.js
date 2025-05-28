@@ -113,7 +113,7 @@ export class MagnetLink extends plugin {
                 }
 
                 if (results.length > 0) {
-                    const forwardMsg = await e.group.makeForwardMsg(results);
+                    const forwardMsg = await Bot.makeForwardMsg(results);
                     await this.reply(forwardMsg);
                     await browser.close();
                     return;
