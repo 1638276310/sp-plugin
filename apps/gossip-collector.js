@@ -3,7 +3,17 @@
 // 插件作者：@QQ1638276310
 // 插件主页：https://github.com/1638276310/sp-plugin
 
+import fs from "fs";
+import path from "path";
 import puppeteer from "puppeteer";
+
+const idsFilePath = path.join(
+  process.cwd(),
+  "data",
+  "sp-plugin",
+  "config",
+  "ids.json"
+);
 
 export class VideoSearch extends plugin {
   constructor() {
@@ -11,7 +21,7 @@ export class VideoSearch extends plugin {
       name: "718吃瓜网视频搜索",
       dsc: "从718吃瓜视频站提取视频m3u8地址和文章内容",
       event: "message",
-      priority: "718",
+      priority: "-718",
       rule: [
         {
           reg: "^#?吃瓜\\s*(\\d+)$",
@@ -30,9 +40,8 @@ export class VideoSearch extends plugin {
           fnc: "getPastArticles",
         },
         {
-          reg: "^#?可用吃瓜(id|ID)$",
-          fnc: "listAvailableIds",
-          ignoreCase: true,
+          reg: "^(#)?更新吃瓜ID$",
+          fnc: "updateArticleIds",
         },
       ],
     });
@@ -56,7 +65,27 @@ export class VideoSearch extends plugin {
     this.allArticleIds = [];
     this.finalArticleIds = [];
 
-    this.loadingPromise = this.loadArticleIds();
+    this.loadingPromise = this.loadArticleIdsFromFile();
+  }
+
+  async loadArticleIdsFromFile() {
+    try {
+      if (!fs.existsSync(idsFilePath)) {
+        const dir = path.dirname(idsFilePath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(idsFilePath, "[]", "utf8");
+        logger.info(`创建空的文章ID文件: ${idsFilePath}`);
+      }
+      const data = fs.readFileSync(idsFilePath, "utf8");
+      this.finalArticleIds = JSON.parse(data);
+      logger.info(`成功从文件加载 ${this.finalArticleIds.length} 个文章ID`);
+      return true;
+    } catch (error) {
+      logger.error("从文件加载文章ID失败，尝试重新加载:", error);
+      return this.loadArticleIds();
+    }
   }
 
   async loadArticleIds() {
@@ -127,12 +156,32 @@ export class VideoSearch extends plugin {
         )}`
       );
 
+      await this.saveArticleIdsToFile();
+
       await browser.close();
       return true;
     } catch (error) {
       logger.error("加载文章ID失败:", error);
       this.finalArticleIds = this.getFallbackIds();
+      await this.saveArticleIdsToFile();
       return false;
+    }
+  }
+
+  async saveArticleIdsToFile() {
+    try {
+      const dir = path.dirname(idsFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(
+        idsFilePath,
+        JSON.stringify(this.finalArticleIds),
+        "utf8"
+      );
+      logger.info(`文章ID已保存到 ${idsFilePath}`);
+    } catch (error) {
+      logger.error("保存文章ID到文件失败:", error);
     }
   }
 
@@ -259,29 +308,26 @@ export class VideoSearch extends plugin {
             if (modifiedTimeMeta)
               result.modifiedTime = modifiedTimeMeta.content;
 
-            const dplayers = document.querySelectorAll(".dplayer");
+            // 修改后的视频提取逻辑 - 每个播放器只提取一个URL
+            const dplayers = document.querySelectorAll(
+              ".dplayer.dplayer-no-danmaku"
+            );
             if (dplayers.length > 0) {
               dplayers.forEach((dplayer) => {
                 try {
-                  const config = JSON.parse(
-                    dplayer.getAttribute("data-config")
-                  );
-                  if (config.video?.url) {
-                    result.videoUrls.push(config.video.url);
+                  const configJson = dplayer.getAttribute("data-config");
+                  if (configJson) {
+                    const config = JSON.parse(configJson);
+
+                    // 优先使用主URL，如果不可用则使用备用URL
+                    const videoUrl = config.video?.url || config.video?.url2;
+                    if (videoUrl) {
+                      result.videoUrls.push(videoUrl);
+                    }
                   }
                 } catch (e) {
                   console.error("解析DPlayer配置失败:", e);
                 }
-              });
-            }
-
-            if (result.videoUrls.length === 0) {
-              const videoElements = document.querySelectorAll(
-                "video.dplayer-video"
-              );
-              videoElements.forEach((video) => {
-                const src = video.getAttribute("src");
-                if (src) result.videoUrls.push(src);
               });
             }
 
@@ -306,17 +352,15 @@ export class VideoSearch extends plugin {
               if (imgUrl && !isAd) result.images.push(imgUrl);
             });
 
-            // 替换原来的文章内容提取代码
+            // 文章内容提取
             const blockquote = document.querySelector("blockquote");
             if (blockquote) {
-              // 获取blockquote后面的所有同级元素
               let nextElement = blockquote.nextElementSibling;
               while (nextElement) {
-                if (nextElement.tagName === "DIV") break; // 遇到DIV就停止
+                if (nextElement.tagName === "DIV") break;
 
                 if (nextElement.tagName === "P") {
-                  const text = nextElement.textContent.trim();
-                  // 过滤掉所有xxxx.webp格式的内容
+                  let text = nextElement.textContent.trim();
                   text = text.replace(/\S+\.webp/g, "").trim();
                   result.articleContent.push(text || "\n");
                 }
@@ -352,7 +396,6 @@ export class VideoSearch extends plugin {
                 (pageInfo.publishTime
                   ? `📅发布时间: ${pageInfo.publishTime}\n`
                   : "") +
-                // 修改为
                 (pageInfo.publishedTime
                   ? `📅创建时间: ${pageInfo.publishedTime
                       .replace("T", " T ")
@@ -707,55 +750,13 @@ export class VideoSearch extends plugin {
     );
   }
 
-  async listAvailableIds(e) {
-    await this.loadingPromise;
-
-    if (this.finalArticleIds.length === 0) {
-      await e.reply("没有可用的文章ID", false, { at: true });
-      return;
+  async updateArticleIds(e) {
+    await e.reply("正在更新文章ID，请稍等...", false, { at: true });
+    const success = await this.loadArticleIds();
+    if (success) {
+      await e.reply("文章ID更新成功！", false, { at: true });
+    } else {
+      await e.reply("文章ID更新失败，请稍后重试。", false, { at: true });
     }
-
-    // 先发送统计信息
-    await e.reply(
-      `📋 可用吃瓜ID列表 (共${this.finalArticleIds.length}个)\n` +
-        `📊 统计信息:\n` +
-        `🔢 总数量: ${this.finalArticleIds.length}\n` +
-        `🔝 最大ID: ${Math.max(...this.finalArticleIds.map(Number))}\n` +
-        `🔻 最小ID: ${Math.min(...this.finalArticleIds.map(Number))}\n` +
-        `🔄 最后更新: ${new Date().toLocaleString()}\n` +
-        `正在分段发送ID列表，请稍候...`,
-      false,
-      { at: true }
-    );
-
-    // 分批发送ID，每批50个
-    const batchSize = 50;
-    const totalBatches = Math.ceil(this.finalArticleIds.length / batchSize);
-
-    for (let i = 0; i < this.finalArticleIds.length; i += batchSize) {
-      const batch = this.finalArticleIds.slice(i, i + batchSize);
-      const currentBatch = Math.ceil(i / batchSize) + 1;
-
-      try {
-        await e.reply(
-          `📋 可用ID列表 (${currentBatch}/${totalBatches})\n` +
-            `ID范围: ${batch[0]} - ${batch[batch.length - 1]}\n` +
-            `${batch.join(", ")}`,
-          false,
-          { at: true }
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (error) {
-        logger.error(`发送第${currentBatch}批ID失败:`, error);
-        await e.reply(
-          `发送第${currentBatch}批ID失败，将继续尝试下一批`,
-          false,
-          { at: true }
-        );
-      }
-    }
-
-    await e.reply("✅ 所有可用ID列表已发送完毕", false, { at: true });
   }
 }
