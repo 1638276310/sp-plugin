@@ -7,11 +7,11 @@ import fs from "fs";
 import path from "path";
 import puppeteer from "puppeteer";
 
+// 修改文件路径为 data/gossip-collector/ids.json
 const idsFilePath = path.join(
   process.cwd(),
   "data",
-  "sp-plugin",
-  "config",
+  "gossip-collector",
   "ids.json"
 );
 
@@ -21,7 +21,7 @@ export class VideoSearch extends plugin {
       name: "718吃瓜网视频搜索",
       dsc: "从718吃瓜视频站提取视频m3u8地址和文章内容",
       event: "message",
-      priority: "-718",
+      priority: "718",
       rule: [
         {
           reg: "^#?吃瓜\\s*(\\d+)$",
@@ -54,15 +54,6 @@ export class VideoSearch extends plugin {
       "https://blend.zuiniude.xyz",
     ];
 
-    this.excludedArticleIds = [
-      19949, 18914, 18405, 18185, 16910, 16790, 14666, 13619, 12535, 12489,
-      12395, 9999, 9278, 8819, 7859, 7293, 6998, 6692, 2307, 813, 548, 521, 26,
-      14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
-    ].map(String);
-
-    this.addArticleIds = [];
-
-    this.allArticleIds = [];
     this.finalArticleIds = [];
 
     this.loadingPromise = this.loadArticleIdsFromFile();
@@ -70,14 +61,19 @@ export class VideoSearch extends plugin {
 
   async loadArticleIdsFromFile() {
     try {
+      const dir = path.dirname(idsFilePath);
+      // 确保目录存在
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        logger.info(`创建目录: ${dir}`);
+      }
+
+      // 确保文件存在
       if (!fs.existsSync(idsFilePath)) {
-        const dir = path.dirname(idsFilePath);
-        if (!fs.existsSync(dir)) {
-          fs.mkdirSync(dir, { recursive: true });
-        }
         fs.writeFileSync(idsFilePath, "[]", "utf8");
         logger.info(`创建空的文章ID文件: ${idsFilePath}`);
       }
+
       const data = fs.readFileSync(idsFilePath, "utf8");
       this.finalArticleIds = JSON.parse(data);
       logger.info(`成功从文件加载 ${this.finalArticleIds.length} 个文章ID`);
@@ -89,83 +85,94 @@ export class VideoSearch extends plugin {
   }
 
   async loadArticleIds() {
-    try {
-      const browser = await puppeteer.launch({
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        headless: "new",
-      });
+    let lastError = null;
 
-      const page = await browser.newPage();
-      await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      );
+    // 尝试所有备用URL
+    for (const baseUrl of this.videoUrls) {
+      try {
+        const browser = await puppeteer.launch({
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          headless: "new",
+        });
 
-      await page.setRequestInterception(true);
-      page.on("request", (req) => {
-        if (
-          ["stylesheet", "font", "image", "media", "script"].includes(
-            req.resourceType()
-          )
-        ) {
-          req.abort();
-        } else {
-          req.continue();
-        }
-      });
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        );
 
-      await page.goto(`${this.videoUrls[0]}/archives.html`, {
-        timeout: 120000,
-        waitUntil: "domcontentloaded",
-      });
+        await page.setRequestInterception(true);
+        page.on("request", (req) => {
+          if (
+            ["stylesheet", "font", "image", "media", "script"].includes(
+              req.resourceType()
+            )
+          ) {
+            req.abort();
+          } else {
+            req.continue();
+          }
+        });
 
-      await this.autoScrollToBottom(page);
+        await page.goto(`${baseUrl}/archives.html`, {
+          timeout: 600000,
+          waitUntil: "domcontentloaded",
+        });
 
-      await page.waitForFunction(
-        () => {
-          const brickCount = document.querySelectorAll(".brick").length;
-          return new Promise((resolve) => {
-            let lastCount = brickCount;
-            setTimeout(() => {
-              const newCount = document.querySelectorAll(".brick").length;
-              resolve(newCount === lastCount);
-            }, 2000);
-          });
-        },
-        { timeout: 60000 }
-      );
+        await this.autoScrollToBottom(page);
 
-      const scrapedIds = await page.evaluate(() => {
-        const bricks = Array.from(document.querySelectorAll(".brick"));
-        return bricks
-          .map((brick) => {
-            const link = brick.querySelector('a[href^="/archives/"]');
-            if (!link) return null;
-            const href = link.href || link.getAttribute("data-original-url");
-            const match = href.match(/\/archives\/(\d+)/);
+        await page.waitForFunction(
+          () => {
+            const brickCount = document.querySelectorAll(".brick").length;
+            return new Promise((resolve) => {
+              let lastCount = brickCount;
+              setTimeout(() => {
+                const newCount = document.querySelectorAll(".brick").length;
+                resolve(newCount === lastCount);
+              }, 600000);
+            });
+          },
+          { timeout: 600000 }
+        );
+
+        const firstId = await page.evaluate(() => {
+          const firstBrickLink = document.querySelector(
+            '.brick a[href^="/archives/"]'
+          );
+          if (firstBrickLink) {
+            const match = firstBrickLink.href.match(/\/archives\/(\d+)/);
             return match ? match[1] : null;
-          })
-          .filter(Boolean);
-      });
+          }
+          return null;
+        });
 
-      this.finalArticleIds = this.processArticleIds(scrapedIds);
+        if (firstId) {
+          const maxId = parseInt(firstId);
+          this.finalArticleIds = Array.from({ length: maxId }, (_, i) =>
+            (i + 1).toString()
+          );
+          logger.info(
+            `从 ${baseUrl} 成功加载 ${this.finalArticleIds.length} 个文章ID`
+          );
+        } else {
+          throw new Error("未找到文章ID");
+        }
 
-      logger.info(`成功加载 ${this.finalArticleIds.length} 个文章ID`);
-      logger.debug(
-        `ID范围: ${Math.min(...this.finalArticleIds.map(Number))}-${Math.max(
-          ...this.finalArticleIds.map(Number)
-        )}`
-      );
+        await this.saveArticleIdsToFile();
 
-      await this.saveArticleIdsToFile();
-
-      await browser.close();
-      return true;
-    } catch (error) {
-      logger.error("加载文章ID失败:", error);
-      this.finalArticleIds = this.getFallbackIds();
-      await this.saveArticleIdsToFile();
-      return false;
+        await browser.close();
+        return true;
+      } catch (error) {
+        lastError = error;
+        logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
+        // 继续尝试下一个URL
+      }
     }
+
+    // 如果所有URL都失败
+    logger.error("所有备用URL都无法加载文章ID");
+    this.finalArticleIds = [];
+    await this.saveArticleIdsToFile();
+    return false;
   }
 
   async saveArticleIdsToFile() {
@@ -209,19 +216,6 @@ export class VideoSearch extends plugin {
     });
   }
 
-  getFallbackIds() {
-    return this.addArticleIds.filter(
-      (id) => !this.excludedArticleIds.includes(id)
-    );
-  }
-
-  processArticleIds(scrapedIds) {
-    const allIds = [...new Set([...scrapedIds, ...this.addArticleIds])];
-    return allIds
-      .filter((id) => !this.excludedArticleIds.includes(id))
-      .sort((a, b) => parseInt(b) - parseInt(a));
-  }
-
   async processVideoSearch(e) {
     await this.loadingPromise;
 
@@ -229,11 +223,6 @@ export class VideoSearch extends plugin {
     if (!match) return;
 
     const videoId = match[1];
-    if (this.excludedArticleIds.includes(videoId)) {
-      await e.reply("该文章 ID 已被排除，无法搜索。", false, { at: true });
-      return;
-    }
-
     if (!this.finalArticleIds.includes(videoId)) {
       await e.reply("该ID不存在", false, { at: true });
       return;
@@ -245,9 +234,59 @@ export class VideoSearch extends plugin {
     });
 
     let lastError = null;
+    let urlFound = false;
 
     for (const baseUrl of this.videoUrls) {
       const url = `${baseUrl}/archives/${videoId}`;
+
+      // 校验URL是否返回404或发生跳转
+      try {
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        );
+
+        // 设置请求拦截器，检查响应状态码
+        let responseReceived = false;
+        page.on("response", async (response) => {
+          if (response.url() === url && !responseReceived) {
+            responseReceived = true;
+            const status = response.status();
+            if (status === 404) {
+              throw new Error("404 Not Found");
+            }
+          }
+        });
+
+        // 尝试访问页面
+        await page.goto(url, {
+          timeout: 600000,
+          waitUntil: "networkidle2",
+        });
+
+        // 检查是否发生了跳转
+        const finalUrl = page.url();
+        if (finalUrl !== url) {
+          throw new Error("URL Redirected");
+        }
+
+        // 如果页面加载成功且URL未变，标记URL有效
+        urlFound = true;
+        await page.close();
+      } catch (error) {
+        if (error.message === "404 Not Found") {
+          logger.info(`ID ${videoId} 在 ${baseUrl} 上不存在`);
+          continue; // 尝试下一个备用URL
+        } else if (error.message === "URL Redirected") {
+          logger.info(`ID ${videoId} 在 ${baseUrl} 上已跳转`);
+          continue; // 尝试下一个备用URL
+        }
+        lastError = error;
+        logger.error(`尝试URL ${url} 失败:`, error);
+        continue;
+      }
+
+      // 如果URL有效，则继续处理
       try {
         const page = await browser.newPage();
         await page.setUserAgent(
@@ -267,13 +306,13 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(url, {
-              timeout: 60000,
+              timeout: 600000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 60000));
+            await new Promise((r) => setTimeout(r, 600000));
           }
         }
 
@@ -352,22 +391,41 @@ export class VideoSearch extends plugin {
               if (imgUrl && !isAd) result.images.push(imgUrl);
             });
 
-            // 文章内容提取
+            // 文章内容提取 - 修改部分开始
             const blockquote = document.querySelector("blockquote");
             if (blockquote) {
               let nextElement = blockquote.nextElementSibling;
+              let consecutiveEmpty = 0; // 连续空段落计数器
+
               while (nextElement) {
                 if (nextElement.tagName === "DIV") break;
 
                 if (nextElement.tagName === "P") {
                   let text = nextElement.textContent.trim();
-                  text = text.replace(/\S+\.webp/g, "").trim();
-                  result.articleContent.push(text || "\n");
+                  text = text
+                    .replace(/(?:^|\s)(.*?\.webp)(?:\s|$)/g, "")
+                    .trim();
+
+                  // 非空段落处理
+                  if (text) {
+                    consecutiveEmpty = 0; // 重置计数器
+                    result.articleContent.push(text);
+                  }
+                  // 空段落处理
+                  else {
+                    consecutiveEmpty++;
+                    // 检测到连续两个空段落，添加结束提示
+                    if (consecutiveEmpty >= 2) {
+                      result.articleContent.push("嘿，哥们，没了，是的，没了");
+                      break;
+                    }
+                  }
                 }
 
                 nextElement = nextElement.nextElementSibling;
               }
             }
+            // 文章内容提取 - 修改部分结束
 
             return result;
           } catch (e) {
@@ -398,12 +456,12 @@ export class VideoSearch extends plugin {
                   : "") +
                 (pageInfo.publishedTime
                   ? `📅创建时间: ${pageInfo.publishedTime
-                      .replace("T", " T ")
+                      .replace("T", "——")
                       .replace(/\+.*$/, "")}\n`
                   : "") +
                 (pageInfo.modifiedTime
                   ? `📅最后修改时间: ${pageInfo.modifiedTime
-                      .replace("T", " T ")
+                      .replace("T", "——")
                       .replace(/\+.*$/, "")}\n`
                   : "") +
                 `📛请勿用于非法用途`,
@@ -498,13 +556,19 @@ export class VideoSearch extends plugin {
     }
 
     await browser.close();
-    await e.reply(
-      `未找到视频地址，请稍后重试。错误信息: ${
-        lastError?.message || "未知错误"
-      }`,
-      false,
-      { at: true }
-    );
+
+    // 根据URL检查结果决定回复内容
+    if (!urlFound) {
+      await e.reply("该ID不存在", false, { at: true });
+    } else {
+      await e.reply(
+        `未找到视频地址，请稍后重试。错误信息: ${
+          lastError?.message || "未知错误"
+        }`,
+        false,
+        { at: true }
+      );
+    }
   }
 
   async randomVideoSearch(e) {
@@ -564,13 +628,13 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(searchUrl, {
-              timeout: 60000,
+              timeout: 600000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 60000));
+            await new Promise((r) => setTimeout(r, 600000));
           }
         }
 
@@ -673,17 +737,17 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(archiveUrl, {
-              timeout: 60000,
+              timeout: 600000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 60000));
+            await new Promise((r) => setTimeout(r, 600000));
           }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, 600000));
 
         const archiveInfo = await page.evaluate((count) => {
           const result = [];
