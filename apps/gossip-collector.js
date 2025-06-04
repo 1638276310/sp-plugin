@@ -55,7 +55,6 @@ export class VideoSearch extends plugin {
       "https://shrew.zzqqaa.com",
       "https://swoop.zzqqaa.com",
       "https://plaza.zzqqaa.com",
-      "https://plush.wulipolo.com",
       "https://climb.wulipolo.com",
       "https://chomp.wulipolo.com",
     ];
