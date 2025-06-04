@@ -52,12 +52,12 @@ export class VideoSearch extends plugin {
       "https://fence.zuiniude.xyz",
       "https://plane.zuiniude.xyz",
       "https://blend.zuiniude.xyz",
-      "https://shrew.zzqqaa.com/",
-      "https://swoop.zzqqaa.com/",
-      "https://plaza.zzqqaa.com/",
-      "https://plush.wulipolo.com/",
-      "https://climb.wulipolo.com/",
-      "https://chomp.wulipolo.com/",
+      "https://shrew.zzqqaa.com",
+      "https://swoop.zzqqaa.com",
+      "https://plaza.zzqqaa.com",
+      "https://plush.wulipolo.com",
+      "https://climb.wulipolo.com",
+      "https://chomp.wulipolo.com",
     ];
 
     this.finalArticleIds = [];
@@ -119,7 +119,7 @@ export class VideoSearch extends plugin {
           }
         });
 
-        await page.goto(`${baseUrl}//archives.html`, {
+        await page.goto(`${baseUrl}/archives.html`, {
           timeout: 120000,
           waitUntil: "domcontentloaded",
         });
