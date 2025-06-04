@@ -52,6 +52,12 @@ export class VideoSearch extends plugin {
       "https://fence.zuiniude.xyz",
       "https://plane.zuiniude.xyz",
       "https://blend.zuiniude.xyz",
+      "https://shrew.zzqqaa.com/",
+      "https://swoop.zzqqaa.com/",
+      "https://plaza.zzqqaa.com/",
+      "https://plush.wulipolo.com/",
+      "https://climb.wulipolo.com/",
+      "https://chomp.wulipolo.com/",
     ];
 
     this.finalArticleIds = [];
@@ -113,8 +119,8 @@ export class VideoSearch extends plugin {
           }
         });
 
-        await page.goto(`${baseUrl}/archives.html`, {
-          timeout: 600000,
+        await page.goto(`${this.videoUrls}/archives.html`, {
+          timeout: 120000,
           waitUntil: "domcontentloaded",
         });
 
@@ -128,10 +134,10 @@ export class VideoSearch extends plugin {
               setTimeout(() => {
                 const newCount = document.querySelectorAll(".brick").length;
                 resolve(newCount === lastCount);
-              }, 600000);
+              }, 120000);
             });
           },
-          { timeout: 600000 }
+          { timeout: 120000 }
         );
 
         const firstId = await page.evaluate(() => {
@@ -260,7 +266,7 @@ export class VideoSearch extends plugin {
 
         // 尝试访问页面
         await page.goto(url, {
-          timeout: 600000,
+          timeout: 120000,
           waitUntil: "networkidle2",
         });
 
@@ -306,13 +312,13 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(url, {
-              timeout: 600000,
+              timeout: 120000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 600000));
+            await new Promise((r) => setTimeout(r, 120000));
           }
         }
 
@@ -628,13 +634,13 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(searchUrl, {
-              timeout: 600000,
+              timeout: 120000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 600000));
+            await new Promise((r) => setTimeout(r, 120000));
           }
         }
 
@@ -737,17 +743,17 @@ export class VideoSearch extends plugin {
         while (retries--) {
           try {
             await page.goto(archiveUrl, {
-              timeout: 600000,
+              timeout: 120000,
               waitUntil: "networkidle2",
             });
             break;
           } catch (err) {
             if (retries === 0) throw err;
-            await new Promise((r) => setTimeout(r, 600000));
+            await new Promise((r) => setTimeout(r, 120000));
           }
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 600000));
+        await new Promise((resolve) => setTimeout(resolve, 120000));
 
         const archiveInfo = await page.evaluate((count) => {
           const result = [];
