@@ -119,7 +119,7 @@ export class VideoSearch extends plugin {
           }
         });
 
-        await page.goto(`${this.videoUrls}/archives.html`, {
+        await page.goto(`${baseUrl}//archives.html`, {
           timeout: 120000,
           waitUntil: "domcontentloaded",
         });
