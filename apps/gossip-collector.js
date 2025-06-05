@@ -91,6 +91,7 @@ export class VideoSearch extends plugin {
 
   async loadArticleIds() {
     let lastError = null;
+    let maxId = 0;
 
     // 尝试所有备用URL
     for (const baseUrl of this.videoUrls) {
@@ -123,49 +124,29 @@ export class VideoSearch extends plugin {
           waitUntil: "domcontentloaded",
         });
 
-        await this.autoScrollToBottom(page);
+        // 等待第一个.brick元素加载
+        await page.waitForSelector('.brick a[href^="/archives/"]', {
+          timeout: 120000,
+        });
 
-        await page.waitForFunction(
-          () => {
-            const brickCount = document.querySelectorAll(".brick").length;
-            return new Promise((resolve) => {
-              let lastCount = brickCount;
-              setTimeout(() => {
-                const newCount = document.querySelectorAll(".brick").length;
-                resolve(newCount === lastCount);
-              }, 120000);
-            });
-          },
-          { timeout: 120000 }
-        );
-
+        // 获取第一个文章的ID
         const firstId = await page.evaluate(() => {
           const firstBrickLink = document.querySelector(
             '.brick a[href^="/archives/"]'
           );
           if (firstBrickLink) {
             const match = firstBrickLink.href.match(/\/archives\/(\d+)/);
-            return match ? match[1] : null;
+            return match ? parseInt(match[1]) : null;
           }
           return null;
         });
 
-        if (firstId) {
-          const maxId = parseInt(firstId);
-          this.finalArticleIds = Array.from({ length: maxId }, (_, i) =>
-            (i + 1).toString()
-          );
-          logger.info(
-            `从 ${baseUrl} 成功加载 ${this.finalArticleIds.length} 个文章ID`
-          );
-        } else {
-          throw new Error("未找到文章ID");
+        if (firstId && firstId > maxId) {
+          maxId = firstId;
+          logger.info(`从 ${baseUrl} 获取到最大ID: ${maxId}`);
         }
 
-        await this.saveArticleIdsToFile();
-
         await browser.close();
-        return true;
       } catch (error) {
         lastError = error;
         logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
@@ -173,11 +154,24 @@ export class VideoSearch extends plugin {
       }
     }
 
-    // 如果所有URL都失败
-    logger.error("所有备用URL都无法加载文章ID");
-    this.finalArticleIds = [];
-    await this.saveArticleIdsToFile();
-    return false;
+    if (maxId > 0) {
+      // 生成从maxId到1的ID数组
+      this.finalArticleIds = Array.from({ length: maxId }, (_, i) =>
+        (maxId - i).toString()
+      );
+      logger.info(
+        `生成 ${this.finalArticleIds.length} 个文章ID，从 ${maxId} 到 1`
+      );
+
+      await this.saveArticleIdsToFile();
+      return true;
+    } else {
+      // 如果所有URL都失败
+      logger.error("所有备用URL都无法加载文章ID");
+      this.finalArticleIds = [];
+      await this.saveArticleIdsToFile();
+      return false;
+    }
   }
 
   async saveArticleIdsToFile() {
