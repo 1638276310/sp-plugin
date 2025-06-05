@@ -14,7 +14,7 @@ export class PixivArtistWorksFetcher extends plugin {
             name: 'p站画师id获取图片',
             dsc: '通过画师ID获取作品图片',
             event: 'message',
-            priority: 50,
+            priority: -Infinity,
             rule: [
                 {
                     reg: '^#?来(\\d+)张(\\d+)作品$',

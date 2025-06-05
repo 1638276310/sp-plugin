@@ -13,7 +13,7 @@ export class DailyRankImageFetcher extends plugin {
             name: 'Daily Rank Image Fetch',
             dsc: '获取每日排行图片',
             event: 'message',
-            priority: 500,
+            priority: -Infinity,
             rule: [
                 {
                     reg: '^#?每日排行(\\d+)?$',

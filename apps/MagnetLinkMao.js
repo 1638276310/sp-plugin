@@ -7,7 +7,7 @@ export class MagnetLink extends plugin {
                 name: '磁力猫搜索',
                 dsc: '磁力猫搜索',
                 event: 'message',
-                priority: '77',
+                priority: -Infinity,
                 rule: [
                     {
                         reg: '^#?磁力猫(.*)$',

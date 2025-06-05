@@ -20,7 +20,7 @@ import puppeteer from 'puppeteer';
                 name: 'Y:磁力草',
                 dsc: '磁力草',
                 event: 'message',
-                priority: '88',
+                priority: '-Infinity',
                 rule: [{
                     reg: '^#?磁力草(.*)$',
                     fnc: 'MagnetLinkcao'

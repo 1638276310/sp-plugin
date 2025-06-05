@@ -7,7 +7,7 @@ export class RecallConfigController extends plugin {
             name: 'Recall Config Controller',
             dsc: '控制撤回功能的状态和时间',
             event: 'message',
-            priority: '50',
+            priority: '-Infinity',
             rule: [
                 {
                     reg: '^#?(开启|关闭)sp撤回$',

@@ -9,7 +9,7 @@ export class VideoFetcher extends plugin {
             name: 'Video',
             dsc: '随机骚鸡视频',
             event: 'message',
-            priority: 30,
+            priority: -Infinity,
             rule: [
                 {
                     reg: '^#?(骚鸡|烧鸡|sj)$',

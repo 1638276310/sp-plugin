@@ -14,7 +14,7 @@ export class PixivImageFetcher extends plugin {
             name: '获取p站图',
             dsc: '获取p站图',
             event: 'message',
-            priority: 500,
+            priority: -Infinity,
             rule: [
                 {
                     reg: '^#?pid(\\d+)$',
