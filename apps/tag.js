@@ -1,4 +1,3 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import axios from 'axios';
 import fs from 'fs';
 import YAML from 'yaml';
@@ -14,7 +13,7 @@ export class SetuImageFetcher extends plugin {
             name: 'Setu Image Fetch',
             dsc: '通过tag搜索图',
             event: 'message',
-            priority: 500,
+            priority: -Infinity,
             rule: [
                 {
                     reg: '^#?来(\\d+)张(.*?)图$',

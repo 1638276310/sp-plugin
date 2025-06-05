@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer';
-import plugin from '../../../lib/plugins/plugin.js';
 
 export class MagnetLink extends plugin {
     constructor() {

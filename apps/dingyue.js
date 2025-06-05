@@ -11,7 +11,7 @@ export class ArtistSubscription extends plugin {
             name: '画师订阅与推送',
             dsc: '订阅画师并控制P站推送',
             event: 'message.group',
-            priority: 50,
+            priority: -Infinity,
             rule: [
                 { reg: '^#订阅画师(\\d+)$', fnc: 'subscribeArtist' },
                 { reg: '^#取消订阅(\\d+)$', fnc: 'unsubscribeArtist' },

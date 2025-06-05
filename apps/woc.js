@@ -16,7 +16,7 @@ export class WocPlugin extends plugin {
             name: "wocpp",
             dsc: "PP版神秘指令图片获取",
             event: "message",
-            priority: 500,
+            priority: -Infinity,
             rule: [
                 {
                     reg: "^#?(woc|卧槽|我擦|wc)",

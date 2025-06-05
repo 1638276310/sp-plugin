@@ -1,7 +1,5 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import fs from 'fs';
 import YAML from 'yaml';
-import { keyValue } from '../config/api.js';
 
 export class RecallConfigController extends plugin {
     constructor() {
@@ -12,11 +10,11 @@ export class RecallConfigController extends plugin {
             priority: '50',
             rule: [
                 {
-                    reg: '^#?(开启|关闭)p撤回$',
+                    reg: '^#?(开启|关闭)sp撤回$',
                     fnc: 'toggleRecall'
                 },
                 {
-                    reg: '^#?设置p撤回(\\d+)$',
+                    reg: '^#?设置sp撤回(\\d+)$',
                     fnc: 'setRecallTime'
                 },
                 {

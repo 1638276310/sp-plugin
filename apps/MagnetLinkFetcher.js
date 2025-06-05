@@ -1,4 +1,3 @@
-import plugin from '../../../lib/plugins/plugin.js';
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import YAML from 'yaml';

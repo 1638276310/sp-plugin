@@ -21,7 +21,7 @@ export class VideoSearch extends plugin {
       name: "718吃瓜网视频搜索",
       dsc: "从718吃瓜视频站提取视频m3u8地址和文章内容",
       event: "message",
-      priority: "718",
+      priority: -Infinity,
       rule: [
         {
           reg: "^#?吃瓜\\s*(\\d+)$",
