@@ -60,6 +60,7 @@ export class VideoSearch extends plugin {
     ];
 
     this.finalArticleIds = [];
+    this.excludedIds = []; // 新增：存储排除的ID
 
     this.loadingPromise = this.loadArticleIdsFromFile();
   }
@@ -80,8 +81,26 @@ export class VideoSearch extends plugin {
       }
 
       const data = fs.readFileSync(idsFilePath, "utf8");
-      this.finalArticleIds = JSON.parse(data);
-      logger.info(`成功从文件加载 ${this.finalArticleIds.length} 个文章ID`);
+      let parsedData;
+
+      // 兼容旧格式和新格式
+      if (data.startsWith("[")) {
+        // 旧格式：纯数组
+        this.finalArticleIds = JSON.parse(data);
+        this.excludedIds = [];
+        logger.info(
+          `成功从文件加载 ${this.finalArticleIds.length} 个文章ID (旧格式)`
+        );
+      } else {
+        // 新格式：包含两个数组的对象
+        parsedData = JSON.parse(data);
+        this.finalArticleIds = parsedData.articleIds || [];
+        this.excludedIds = parsedData.excludedIds || [];
+        logger.info(
+          `成功从文件加载 ${this.finalArticleIds.length} 个文章ID 和 ${this.excludedIds.length} 个排除ID`
+        );
+      }
+
       return true;
     } catch (error) {
       logger.error("从文件加载文章ID失败，尝试重新加载:", error);
@@ -89,8 +108,27 @@ export class VideoSearch extends plugin {
     }
   }
 
+  async saveArticleIdsToFile() {
+    try {
+      const dir = path.dirname(idsFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      // 保存两个数组
+      const dataToSave = {
+        articleIds: this.finalArticleIds,
+        excludedIds: this.excludedIds,
+      };
+
+      fs.writeFileSync(idsFilePath, JSON.stringify(dataToSave), "utf8");
+      logger.info(`文章ID和排除ID已保存到 ${idsFilePath}`);
+    } catch (error) {
+      logger.error("保存文章ID到文件失败:", error);
+    }
+  }
+
   async loadArticleIds() {
-    let lastError = null;
     let maxId = 0;
 
     // 尝试所有备用URL
@@ -148,7 +186,6 @@ export class VideoSearch extends plugin {
 
         await browser.close();
       } catch (error) {
-        lastError = error;
         logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
         // 继续尝试下一个URL
       }
@@ -163,31 +200,18 @@ export class VideoSearch extends plugin {
         `生成 ${this.finalArticleIds.length} 个文章ID，从 ${maxId} 到 1`
       );
 
+      // 保留现有的排除ID
+      this.excludedIds = this.excludedIds || [];
+
       await this.saveArticleIdsToFile();
       return true;
     } else {
       // 如果所有URL都失败
       logger.error("所有备用URL都无法加载文章ID");
       this.finalArticleIds = [];
+      this.excludedIds = [];
       await this.saveArticleIdsToFile();
       return false;
-    }
-  }
-
-  async saveArticleIdsToFile() {
-    try {
-      const dir = path.dirname(idsFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(
-        idsFilePath,
-        JSON.stringify(this.finalArticleIds),
-        "utf8"
-      );
-      logger.info(`文章ID已保存到 ${idsFilePath}`);
-    } catch (error) {
-      logger.error("保存文章ID到文件失败:", error);
     }
   }
 
@@ -222,6 +246,13 @@ export class VideoSearch extends plugin {
     if (!match) return;
 
     const videoId = match[1];
+
+    // 新增：检查ID是否在排除列表中
+    if (this.excludedIds.includes(videoId)) {
+      await e.reply("嘿~哥们！", false, { at: true });
+      return;
+    }
+
     if (!this.finalArticleIds.includes(videoId)) {
       await e.reply("该ID不存在", false, { at: true });
       return;
@@ -234,6 +265,7 @@ export class VideoSearch extends plugin {
 
     let lastError = null;
     let urlFound = false;
+    let shouldExclude = false; // 新增：标记是否需要排除此ID
 
     for (const baseUrl of this.videoUrls) {
       const url = `${baseUrl}/archives/${videoId}`;
@@ -275,9 +307,11 @@ export class VideoSearch extends plugin {
       } catch (error) {
         if (error.message === "404 Not Found") {
           logger.info(`ID ${videoId} 在 ${baseUrl} 上不存在`);
+          shouldExclude = true; // 标记需要排除
           continue; // 尝试下一个备用URL
         } else if (error.message === "URL Redirected") {
           logger.info(`ID ${videoId} 在 ${baseUrl} 上已跳转`);
+          shouldExclude = true; // 标记需要排除
           continue; // 尝试下一个备用URL
         }
         lastError = error;
@@ -556,6 +590,13 @@ export class VideoSearch extends plugin {
 
     await browser.close();
 
+    // 新增：如果检测到需要排除此ID
+    if (shouldExclude && !this.excludedIds.includes(videoId)) {
+      this.excludedIds.push(videoId);
+      await this.saveArticleIdsToFile();
+      logger.info(`已将ID ${videoId} 添加到排除列表`);
+    }
+
     // 根据URL检查结果决定回复内容
     if (!urlFound) {
       await e.reply("该ID不存在", false, { at: true });
@@ -573,13 +614,18 @@ export class VideoSearch extends plugin {
   async randomVideoSearch(e) {
     await this.loadingPromise;
 
-    if (this.finalArticleIds.length === 0) {
+    // 过滤掉排除的ID
+    const availableIds = this.finalArticleIds.filter(
+      (id) => !this.excludedIds.includes(id)
+    );
+
+    if (availableIds.length === 0) {
       await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true });
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * this.finalArticleIds.length);
-    const randomVideoId = this.finalArticleIds[randomIndex];
+    const randomIndex = Math.floor(Math.random() * availableIds.length);
+    const randomVideoId = availableIds[randomIndex];
 
     await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, {
       at: true,
@@ -671,10 +717,17 @@ export class VideoSearch extends plugin {
         ];
 
         searchResults.slice(0, 30).forEach((result, index) => {
+          // 检查ID是否被排除
+          const isExcluded = this.excludedIds.includes(result.id);
+          const statusMark = isExcluded ? " (已失效)" : "";
+
           forwardNodes.push({
             user_id: e.user_id,
             nickname: e.sender.nickname,
-            message: [`${index + 1}. ${result.title}\n`, `📌 ID: ${result.id}`],
+            message: [
+              `${index + 1}. ${result.title}${statusMark}\n`,
+              `📌 ID: ${result.id}`,
+            ],
           });
         });
 
@@ -783,11 +836,15 @@ export class VideoSearch extends plugin {
         ];
 
         archiveInfo.forEach((article, index) => {
+          // 检查ID是否被排除
+          const isExcluded = this.excludedIds.includes(article.id);
+          const statusMark = isExcluded ? " (已失效)" : "";
+
           forwardNodes.push({
             user_id: e.user_id,
             nickname: e.sender.nickname,
             message: [
-              `${index + 1}. 📝标题: ${article.title}\n`,
+              `${index + 1}. 📝标题: ${article.title}${statusMark}\n`,
               `🆔ID: ${article.id}\n`,
             ],
           });
