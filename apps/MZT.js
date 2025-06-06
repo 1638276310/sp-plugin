@@ -9,7 +9,7 @@ export class MZTPlugin extends plugin {
             priority: -Infinity,
             rule: [
                 {
-                    reg: '^#妹子图(\\d+)$',
+                    reg: '^#?妹子图(\\d+)$',
                     fnc: 'processMZTRequest'
                 }
             ]
@@ -18,7 +18,7 @@ export class MZTPlugin extends plugin {
 
     async processMZTRequest(e) {
         await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-        const match = e.msg.match(/^#MZT(\d+)$/);
+        const match = e.msg.match(/^#?妹子图(\d+)$/);
         if (!match) return;
 
         const articleId = match[1];
