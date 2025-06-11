@@ -11,8 +11,8 @@ import puppeteer from "puppeteer";
 const idsFilePath = path.join(
   process.cwd(),
   "data",
-  "gossip-collector",
-  "ids.json"
+  "sp-plugin",
+  "gossip-collectorids.json"
 );
 
 export class VideoSearch extends plugin {
