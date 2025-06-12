@@ -9,25 +9,15 @@ git clone https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugi
 ## 安装依赖
 
 ```bash
-pnpm add axios -w
+pnpm i--filter=sp-plugin
 ```
 
-为防止风控，所以安装python来处理图片
+### 为防止风控，所以安装Python来处理图片
 
 ## 安装Python依赖
 
 ```text
-pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pillow
-```
-
-doker内安装（trss安装的崽）
-
-```text
-docker exec -it TRSS_AllBot /bin/bash
-```
-
-```text
-pacman -S python-pillow
+sudo apt install python3-pillow
 ```
 
 ## 说明
@@ -39,8 +29,8 @@ pacman -S python-pillow
 
 ## Future
 
+- mzt.js 正在制作中（大工程耗时长）
 - 2048.js正在制作中（大工程耗时长）
-- MZT.js正在制作中（大工程耗时长）
 
 ## ✨ 功能    欢迎加群991639461
 
