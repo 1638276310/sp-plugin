@@ -18,6 +18,10 @@ export class MZTPlugin extends plugin {
           reg: "^#?更新写真ID$",
           fnc: "fetchAllMZTArticleIds",
         },
+        {
+          reg: "^#?更新潮拍ID$",
+          fnc: "fetchAllBeautyArticleIds",
+        },
       ],
     });
   }
@@ -47,9 +51,8 @@ export class MZTPlugin extends plugin {
       });
 
       const imageUrls = new Set();
-      let imageCount = 0; // 记录已获取的图片数量
+      let imageCount = 0;
 
-      // 获取初始页面上的图片
       let pageImages = await page.$$eval(
         'img[referrerpolicy="origin"]',
         (imgs) => imgs.map((img) => img.src)
@@ -65,7 +68,6 @@ export class MZTPlugin extends plugin {
         console.log("在初始页面上未找到符合条件的图片");
       }
 
-      // 如果初始页面的图片不足20张，尝试点击下一页获取更多
       while (imageCount < 20) {
         const nextButton = await page.$(
           'div.uk-position-center-right.uk-overlay.uk-overlay-default.f-swich[action="next"]'
@@ -79,7 +81,6 @@ export class MZTPlugin extends plugin {
         await nextButton.click();
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        // 获取新的图片URL
         pageImages = await page.$$eval('img[referrerpolicy="origin"]', (imgs) =>
           imgs.map((img) => img.src)
         );
@@ -88,7 +89,6 @@ export class MZTPlugin extends plugin {
           for (const imgUrl of pageImages) {
             if (imageCount >= 20) break;
             if (!imageUrls.has(imgUrl)) {
-              // 确保不添加重复图片
               imageUrls.add(imgUrl);
               imageCount++;
               console.log(`找到图片 (${imageCount}): ${imgUrl}`);
@@ -138,13 +138,11 @@ export class MZTPlugin extends plugin {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
-      // 访问第一页
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
-      // 1. 获取总页数
       let totalPages = 1;
       const pagination = await page.$("ul.uk-pagination");
       if (pagination) {
@@ -158,9 +156,8 @@ export class MZTPlugin extends plugin {
           }
         }
       }
-      await e.reply(`检测到总页数: ${totalPages}，开始收集ID...`, true);
+      console.log(`检测到总页数: ${totalPages}`);
 
-      // 2. 收集所有页面的ID
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
           currentPage === 1 ? baseUrl : `${baseUrl}page/${currentPage}/`;
@@ -171,7 +168,6 @@ export class MZTPlugin extends plugin {
           });
         }
 
-        // 提取当前页的所有写真ID
         const pageIds = await page.$$eval("a.uk-inline.u-thumb-v", (links) =>
           links
             .map((link) => {
@@ -186,20 +182,10 @@ export class MZTPlugin extends plugin {
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
         );
 
-        // 每10页报告一次进度
-        if (currentPage % 10 === 0 || currentPage === totalPages) {
-          await e.reply(
-            `进度: ${currentPage}/${totalPages} 页 | 已收集 ${allIds.length} 个ID`,
-            true
-          );
-        }
-
-        // 添加延迟避免请求过快
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      // 3. 保存结果到文件
-      const uniqueIds = [...new Set(allIds)]; // 去重
+      const uniqueIds = [...new Set(allIds)];
       const filePath = path.join(
         process.cwd(),
         "data",
@@ -208,16 +194,12 @@ export class MZTPlugin extends plugin {
       );
 
       const dir = path.dirname(filePath);
-      // 确保目录存在
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
-        console.log(`创建目录: ${dir}`);
       }
 
-      // 确保文件存在
       if (!fs.existsSync(filePath)) {
         fs.writeFileSync(filePath, "[]", "utf8");
-        console.log(`创建空的文章ID文件: ${filePath}`);
       }
 
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
@@ -227,6 +209,103 @@ export class MZTPlugin extends plugin {
     } catch (error) {
       console.error("ID收集失败:", error);
       await e.reply(`ID收集失败: ${error.message}`, true);
+    } finally {
+      if (browser) await browser.close();
+    }
+  }
+
+  async fetchAllBeautyArticleIds(e) {
+    await e.reply("开始更新潮拍ID列表，这可能需要几分钟时间...", true);
+    const baseUrl = "https://kkmzt.com/beauty/";
+    const allIds = [];
+    let browser;
+
+    try {
+      browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        headless: "new",
+      });
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
+
+      await page.goto(baseUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      });
+
+      let totalPages = 1;
+      const pagination = await page.$("ul.uk-pagination");
+      if (pagination) {
+        const lastPageElement = await pagination.$("li:nth-last-child(2)");
+        if (lastPageElement) {
+          const lastPageText = await lastPageElement.evaluate((el) =>
+            el.textContent?.trim()
+          );
+          if (lastPageText && !isNaN(lastPageText)) {
+            totalPages = parseInt(lastPageText);
+          }
+        }
+      }
+      console.log(`检测到总页数: ${totalPages}`);
+
+      for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
+        const pageUrl =
+          currentPage === 1 ? baseUrl : `${baseUrl}page/${currentPage}/`;
+        if (currentPage > 1) {
+          await page.goto(pageUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          });
+        }
+
+        const pageIds = await page.$$eval(
+          "div.uk-article h2.uk-margin-remove a",
+          (links) =>
+            links
+              .map((link) => {
+                const match = link.href.match(/\/beauty\/(\d+)\/?$/);
+                return match ? match[1] : null;
+              })
+              .filter(Boolean)
+        );
+
+        allIds.push(...pageIds);
+        console.log(
+          `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个潮拍ID`
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      const uniqueIds = [...new Set(allIds)];
+      const filePath = path.join(
+        process.cwd(),
+        "data",
+        "sp-plugin",
+        "beautyids.json"
+      );
+
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      if (!fs.existsSync(filePath)) {
+        fs.writeFileSync(filePath, "[]", "utf8");
+      }
+
+      fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
+      console.log(`潮拍ID已保存到 ${filePath}`);
+
+      await e.reply(
+        `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
+        true
+      );
+    } catch (error) {
+      console.error("潮拍ID收集失败:", error);
+      await e.reply(`潮拍ID收集失败: ${error.message}`, true);
     } finally {
       if (browser) await browser.close();
     }
