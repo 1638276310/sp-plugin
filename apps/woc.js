@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import lodash from "lodash";
 
 // 默认配置
@@ -122,6 +121,3 @@ export class WocPlugin extends plugin {
         }
     }
 }
-
-
-
