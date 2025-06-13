@@ -90,7 +90,7 @@ export class WocPlugin extends plugin {
 
         } catch (err) {
             console.error(`操作失败：${err.message}`);
-            this.e.reply("连接神秘空间失败，请稍后再试", true);
+            this.e.reply("连接神秘空间失败，请稍后再试", true, { at: true, recallMsg: 5 });
         }
     }
 
