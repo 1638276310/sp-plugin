@@ -1,4 +1,6 @@
 import lodash from "lodash";
+import fetch from "node-fetch";
+
 
 // 默认配置
 const DEFAULT_CONFIG = {
