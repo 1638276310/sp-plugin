@@ -44,7 +44,7 @@ export class WocPlugin extends plugin {
 
         if (remainingCD > 0) {
             const cdMsg = this.formatCDMessage(remainingCD);
-            this.e.reply(`指令冷却中，剩余时间：${cdMsg}`, true);
+            this.e.reply(`指令冷却中，剩余时间：${cdMsg}`, true, { at: true, recallMsg: 5 });
             return false;
         }
 
@@ -70,7 +70,7 @@ export class WocPlugin extends plugin {
     }
 
     async executeMainLogic() {
-        await this.e.reply("探索神秘空间中...", true);
+        await this.e.reply("探索神秘空间中...", true, { at: true, recallMsg: 5 });
 
         try {
             const randomPage = Math.floor(Math.random() * 50) + 1;
@@ -81,7 +81,7 @@ export class WocPlugin extends plugin {
 
             const images = this.extractImages(data);
             if (!images.length) {
-                this.e.reply("没有找到任何图片，换个姿势试试吧~", true);
+                this.e.reply("没有找到任何图片，换个姿势试试吧~", true, { at: true, recallMsg: 5 });
                 return;
             }
 
@@ -119,7 +119,7 @@ export class WocPlugin extends plugin {
             await this.e.reply(forwardMsg);
         } catch (error) {
             console.error(`图片发送失败：${error.message}`);
-            this.e.reply("图片发送过程中出现错误", true);
+            this.e.reply("图片发送过程中出现错误", true, { at: true, recallMsg: 5 });
         }
     }
 }
