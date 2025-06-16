@@ -1,6 +1,5 @@
-import lodash from "lodash";
 import fetch from "node-fetch";
-
+import lodash from "lodash";
 
 // 默认配置
 const DEFAULT_CONFIG = {
@@ -44,7 +43,7 @@ export class WocPlugin extends plugin {
 
         if (remainingCD > 0) {
             const cdMsg = this.formatCDMessage(remainingCD);
-            this.e.reply(`指令冷却中，剩余时间：${cdMsg}`, true, { at: true, recallMsg: 5 });
+            this.e.reply(`指令冷却中，剩余时间：${cdMsg}`, true);
             return false;
         }
 
@@ -70,7 +69,7 @@ export class WocPlugin extends plugin {
     }
 
     async executeMainLogic() {
-        await this.e.reply("探索神秘空间中...", true, { at: true, recallMsg: 5 });
+        await this.e.reply("探索神秘空间中...", true);
 
         try {
             const randomPage = Math.floor(Math.random() * 50) + 1;
@@ -81,7 +80,7 @@ export class WocPlugin extends plugin {
 
             const images = this.extractImages(data);
             if (!images.length) {
-                this.e.reply("没有找到任何图片，换个姿势试试吧~", true, { at: true, recallMsg: 5 });
+                this.e.reply("没有找到任何图片，换个姿势试试吧~", true);
                 return;
             }
 
@@ -90,7 +89,7 @@ export class WocPlugin extends plugin {
 
         } catch (err) {
             console.error(`操作失败：${err.message}`);
-            this.e.reply("连接神秘空间失败，请稍后再试", true, { at: true, recallMsg: 5 });
+            this.e.reply("连接神秘空间失败，请稍后再试", true);
         }
     }
 
@@ -119,7 +118,7 @@ export class WocPlugin extends plugin {
             await this.e.reply(forwardMsg);
         } catch (error) {
             console.error(`图片发送失败：${error.message}`);
-            this.e.reply("图片发送过程中出现错误", true, { at: true, recallMsg: 5 });
+            this.e.reply("图片发送过程中出现错误", true);
         }
     }
 }
