@@ -511,11 +511,7 @@ export class VideoSearch extends plugin {
 
           pageInfo.videoUrls.forEach((url, index) => {
             let cleanUrl = url;
-            if (parseInt(videoId) >= 19949) {
-              cleanUrl = url;
-            } else if (url) {
-              cleanUrl = url.replace(/\\\//g, "/").split("?")[0];
-            }
+            // cleanUrl = url.replace(/\\\//g, "/").split("?")[0];
 
             forwardNodes.push({
               user_id: e.user_id,
