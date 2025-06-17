@@ -57,6 +57,11 @@ export class VideoSearch extends plugin {
       "https://plaza.zzqqaa.com",
       "https://climb.wulipolo.com",
       "https://chomp.wulipolo.com",
+      "https://piano.ayfplus.com",
+      "https://brood.ayfplus.com",
+      "https://quirk.ayfplus.com",
+      "https://swipe.ayfplus.com",
+      "https://swath.ayfplus.com",
     ];
 
     this.finalArticleIds = [];
@@ -242,12 +247,12 @@ export class VideoSearch extends plugin {
   async processVideoSearch(e) {
     await this.loadingPromise;
 
-    const match = e.msg.match(/^#?吃瓜\\s*(\\d+)$/);
+    const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
     if (!match) return;
 
     const videoId = match[1];
 
-    // 新增：检查ID是否在排除列表中
+    // 检查ID是否在排除列表中
     if (this.excludedIds.includes(videoId)) {
       await e.reply("嘿~哥们！", false, { at: true });
       return;
@@ -264,6 +269,7 @@ export class VideoSearch extends plugin {
     });
 
     let allUrlsFailed = true; // 标记是否所有URL都失败
+    let contentFound = false; // 标记是否找到有效内容
     let lastError = null;
 
     for (const baseUrl of this.videoUrls) {
@@ -397,7 +403,7 @@ export class VideoSearch extends plugin {
                     }
                   }
                 } catch (e) {
-                  console.error("解析DPlayer配置失败:", e);
+                  logger.error("解析DPlayer配置失败:", e);
                 }
               });
             }
@@ -461,19 +467,22 @@ export class VideoSearch extends plugin {
 
             return result;
           } catch (e) {
-            console.error("解析页面信息失败:", e);
+            logger.error("解析页面信息失败:", e);
             return null;
           }
         });
 
-        if (
-          !pageInfo ||
-          (pageInfo.videoUrls.length === 0 &&
-            pageInfo.articleContent.length === 0 &&
-            pageInfo.images.length === 0)
-        ) {
+        // 检查是否找到有效内容（视频、文章或图片）
+        const hasContent = 
+          (pageInfo?.videoUrls?.length || 0) > 0 ||
+          (pageInfo?.articleContent?.length || 0) > 0 ||
+          (pageInfo?.images?.length || 0) > 0;
+        
+        if (!pageInfo || !hasContent) {
           throw new Error("未找到视频地址、文章正文内容和图片");
         }
+
+        contentFound = true; // 标记找到有效内容
 
         const forwardNodes = [
           {
@@ -586,15 +595,15 @@ export class VideoSearch extends plugin {
 
     await browser.close();
 
-    // 关键修复：只有当所有URL都失败（即allUrlsFailed为true）时才添加到排除列表
-    if (allUrlsFailed && !this.excludedIds.includes(videoId)) {
+    // 如果所有URL都失败或者没有找到有效内容，添加到排除列表
+    if ((allUrlsFailed || !contentFound) && !this.excludedIds.includes(videoId)) {
       this.excludedIds.push(videoId);
       await this.saveArticleIdsToFile();
-      logger.info(`已将ID ${videoId} 添加到排除列表（所有URL均不可用）`);
+      logger.info(`已将ID ${videoId} 添加到排除列表（所有URL均不可用或内容为空）`);
     }
 
-    // 根据URL检查结果决定回复内容
-    if (allUrlsFailed) {
+    // 根据检查结果决定回复内容
+    if (allUrlsFailed || !contentFound) {
       await e.reply("该ID不存在", false, { at: true });
     } else {
       await e.reply(
@@ -634,7 +643,7 @@ export class VideoSearch extends plugin {
   }
 
   async processSearchQuery(e) {
-    const keyword = e.msg.match(/^#?吃瓜搜索\\s*(\\S+)$/)?.[1]?.trim();
+    const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
     if (!keyword) return;
 
     await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, {
@@ -750,7 +759,7 @@ export class VideoSearch extends plugin {
   }
 
   async getPastArticles(e) {
-    const count = parseInt(e.msg.match(/^#?吃瓜(\\d+)个往期$/)?.[1], 10);
+    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
     if (!count) return;
 
     await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, {
