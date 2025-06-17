@@ -242,7 +242,7 @@ export class VideoSearch extends plugin {
   async processVideoSearch(e) {
     await this.loadingPromise;
 
-    const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
+    const match = e.msg.match(/^#?吃瓜\\s*(\\d+)$/);
     if (!match) return;
 
     const videoId = match[1];
@@ -263,12 +263,12 @@ export class VideoSearch extends plugin {
       headless: "new",
     });
 
+    let allUrlsFailed = true; // 标记是否所有URL都失败
     let lastError = null;
-    let urlFound = false;
-    let shouldExclude = false; // 新增：标记是否需要排除此ID
 
     for (const baseUrl of this.videoUrls) {
       const url = `${baseUrl}/archives/${videoId}`;
+      let currentUrlFailed = false; // 标记当前URL是否失败
 
       // 校验URL是否返回404或发生跳转
       try {
@@ -301,23 +301,22 @@ export class VideoSearch extends plugin {
           throw new Error("URL Redirected");
         }
 
-        // 如果页面加载成功且URL未变，标记URL有效
-        urlFound = true;
+        // 如果页面加载成功且URL未变，关闭预检查页面
         await page.close();
       } catch (error) {
+        currentUrlFailed = true;
         if (error.message === "404 Not Found") {
           logger.info(`ID ${videoId} 在 ${baseUrl} 上不存在`);
-          shouldExclude = true; // 标记需要排除
-          continue; // 尝试下一个备用URL
         } else if (error.message === "URL Redirected") {
           logger.info(`ID ${videoId} 在 ${baseUrl} 上已跳转`);
-          shouldExclude = true; // 标记需要排除
-          continue; // 尝试下一个备用URL
+        } else {
+          logger.error(`尝试URL ${url} 失败:`, error);
         }
-        lastError = error;
-        logger.error(`尝试URL ${url} 失败:`, error);
-        continue;
+        continue; // 继续尝试下一个备用URL
       }
+
+      // 如果当前URL预检查成功，则标记为不是所有URL都失败
+      allUrlsFailed = false;
 
       // 如果URL有效，则继续处理
       try {
@@ -580,21 +579,22 @@ export class VideoSearch extends plugin {
         return;
       } catch (error) {
         lastError = error;
-        logger.error(`尝试URL ${url} 失败:`, error);
+        logger.error(`尝试URL ${url} 获取内容失败:`, error);
+        // 继续尝试下一个URL
       }
     }
 
     await browser.close();
 
-    // 新增：如果检测到需要排除此ID
-    if (shouldExclude && !this.excludedIds.includes(videoId)) {
+    // 关键修复：只有当所有URL都失败（即allUrlsFailed为true）时才添加到排除列表
+    if (allUrlsFailed && !this.excludedIds.includes(videoId)) {
       this.excludedIds.push(videoId);
       await this.saveArticleIdsToFile();
-      logger.info(`已将ID ${videoId} 添加到排除列表`);
+      logger.info(`已将ID ${videoId} 添加到排除列表（所有URL均不可用）`);
     }
 
     // 根据URL检查结果决定回复内容
-    if (!urlFound) {
+    if (allUrlsFailed) {
       await e.reply("该ID不存在", false, { at: true });
     } else {
       await e.reply(
@@ -634,7 +634,7 @@ export class VideoSearch extends plugin {
   }
 
   async processSearchQuery(e) {
-    const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
+    const keyword = e.msg.match(/^#?吃瓜搜索\\s*(\\S+)$/)?.[1]?.trim();
     if (!keyword) return;
 
     await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, {
@@ -750,7 +750,7 @@ export class VideoSearch extends plugin {
   }
 
   async getPastArticles(e) {
-    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
+    const count = parseInt(e.msg.match(/^#?吃瓜(\\d+)个往期$/)?.[1], 10);
     if (!count) return;
 
     await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, {
