@@ -2,8 +2,14 @@
 
 ## 安装
 
+Github源
 ```bash
-git clone https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
+git clone --depth=1 https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
+```
+
+Gitee源
+```bash
+git clone --depth=1 https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plugin/
 ```
 
 ## 安装依赖
