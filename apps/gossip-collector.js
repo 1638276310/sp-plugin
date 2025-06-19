@@ -473,11 +473,11 @@ export class VideoSearch extends plugin {
         });
 
         // 检查是否找到有效内容（视频、文章或图片）
-        const hasContent = 
+        const hasContent =
           (pageInfo?.videoUrls?.length || 0) > 0 ||
           (pageInfo?.articleContent?.length || 0) > 0 ||
           (pageInfo?.images?.length || 0) > 0;
-        
+
         if (!pageInfo || !hasContent) {
           throw new Error("未找到视频地址、文章正文内容和图片");
         }
@@ -596,10 +596,15 @@ export class VideoSearch extends plugin {
     await browser.close();
 
     // 如果所有URL都失败或者没有找到有效内容，添加到排除列表
-    if ((allUrlsFailed || !contentFound) && !this.excludedIds.includes(videoId)) {
+    if (
+      (allUrlsFailed || !contentFound) &&
+      !this.excludedIds.includes(videoId)
+    ) {
       this.excludedIds.push(videoId);
       await this.saveArticleIdsToFile();
-      logger.info(`已将ID ${videoId} 添加到排除列表（所有URL均不可用或内容为空）`);
+      logger.info(
+        `已将ID ${videoId} 添加到排除列表（所有URL均不可用或内容为空）`
+      );
     }
 
     // 根据检查结果决定回复内容
