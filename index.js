@@ -1,26 +1,28 @@
-import fs from 'node:fs'
+import fs from "node:fs";
 
-const files = fs.readdirSync('./plugins/sp-plugin/apps').filter(file => file.endsWith('.js'))
+const files = fs
+  .readdirSync("./plugins/sp-plugin/apps")
+  .filter((file) => file.endsWith(".js"));
 
-let ret = []
+let ret = [];
 
 logger.info(`--------kk need p-------------`);
 
 files.forEach((file) => {
-  ret.push(import(`./apps/${file}`))
-})
+  ret.push(import(`./apps/${file}`));
+});
 
-ret = await Promise.allSettled(ret)
+ret = await Promise.allSettled(ret);
 
-let apps = {}
+let apps = {};
 for (let i in files) {
-  let name = files[i].replace('.js', '')
+  let name = files[i].replace(".js", "");
 
-  if (ret[i].status != 'fulfilled') {
-    logger.error(`载入插件错误：${logger.red(name)}`)
-    logger.error(ret[i].reason)
-    continue
+  if (ret[i].status != "fulfilled") {
+    logger.error(`载入插件错误：${logger.red(name)}`);
+    logger.error(ret[i].reason);
+    continue;
   }
-  apps[name] = ret[i].value[Object.keys(ret[i].value)[0]]
+  apps[name] = ret[i].value[Object.keys(ret[i].value)[0]];
 }
-export { apps }
+export { apps };
