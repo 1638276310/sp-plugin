@@ -10,11 +10,11 @@ export class RecallConfigController extends plugin {
       priority: "-Infinity",
       rule: [
         {
-          reg: "^#?(开启|关闭)sp撤回$",
+          reg: "^#?(开启|关闭)(sp|涩批|色胚|色批|色皮)撤回$",
           fnc: "toggleRecall",
         },
         {
-          reg: "^#?设置sp撤回(\\d+)$",
+          reg: "^#?设置(sp|涩批|色皮|色批)撤回(\\d+)$",
           fnc: "setRecallTime",
         },
         {
