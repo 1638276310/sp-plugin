@@ -19,7 +19,7 @@ export class VideoSearch extends plugin {
   constructor() {
     super({
       name: "718吃瓜网视频搜索",
-      dsc: "从718吃瓜视频站提取视频m3u8地址和文章内容",
+      dsc极客: "从718吃瓜视频站提取视频m3u8地址和文章内容",
       event: "message",
       priority: -Infinity,
       rule: [
@@ -127,7 +127,7 @@ export class VideoSearch extends plugin {
       };
 
       fs.writeFileSync(idsFilePath, JSON.stringify(dataToSave), "utf8");
-      logger.info(`文章ID和排除ID已保存到 ${idsFilePath}`);
+      logger.info(`文章极客ID和排除ID已保存到 ${idsFilePath}`);
     } catch (error) {
       logger.error("保存文章ID到文件失败:", error);
     }
@@ -137,7 +137,7 @@ export class VideoSearch extends plugin {
     let maxId = 0;
 
     // 尝试所有备用URL
-    for (const baseUrl of this.videoUrls) {
+    for (const base极客Url of this.videoUrls) {
       try {
         const browser = await puppeteer.launch({
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -524,7 +524,7 @@ export class VideoSearch extends plugin {
             forwardNodes.push({
               user_id: e.user_id,
               nickname: e.sender.nickname,
-              message: [`${index + 1}. ${cleanUrl}`],
+              message: [`${cleanUrl}`],
             });
           });
         } else {
@@ -570,10 +570,18 @@ export class VideoSearch extends plugin {
                 });
               }, blobUrl);
 
+              // 使用正确的图片消息格式
               forwardNodes.push({
                 user_id: e.user_id,
                 nickname: e.sender.nickname,
-                message: [segment.image(`base64://${base64}`)],
+                message: [
+                  {
+                    type: "image",
+                    data: {
+                      file: `base64://${base64}`,
+                    },
+                  },
+                ],
               });
             } catch (imageError) {
               logger.error("获取图片失败:", imageError);
@@ -581,8 +589,74 @@ export class VideoSearch extends plugin {
           }
         }
 
-        const forwardMessage = await Bot.makeForwardMsg(forwardNodes);
-        await e.reply(forwardMessage);
+        // 新增NapCat判断
+        if (e.bot?.version?.app_name === "NapCat.Onebot") {
+          // 构建NapCat格式的转发消息
+          const nodes = [];
+
+          for (const node of forwardNodes) {
+            // 确保消息是数组格式
+            const messages = Array.isArray(node.message)
+              ? node.message
+              : [node.message];
+            const content = [];
+
+            for (const item of messages) {
+              if (typeof item === "string") {
+                content.push({
+                  type: "text",
+                  data: { text: item },
+                });
+              } else if (item?.type === "image") {
+                content.push({
+                  type: "image",
+                  data: { file: item.data.file },
+                });
+              } else if (item?.type === "video") {
+                content.push({
+                  type: "video",
+                  data: { file: item.data.file },
+                });
+              } else {
+                content.push({
+                  type: "text",
+                  data: { text: "不支持的消息类型" },
+                });
+              }
+            }
+
+            nodes.push({
+              type: "node",
+              data: {
+                nickname: e.sender.nickname,
+                user_id: e.user_id,
+                content: content,
+              },
+            });
+          }
+
+          // 构建请求体 - 自定义信息处
+          const requestBody = {
+            group_id: e.group_id,
+            user_id: e.user_id,
+            message: nodes,
+            news: [{ text: "QQ/VX：1638276310" }],
+            prompt: "QQ/VX：1638276310",
+            summary: `QQ/VX：1638276310`,
+            source: "QQ/VX：1638276310",
+          };
+
+          // 发送转发消息
+          if (e.isGroup) {
+            await e.bot.sendApi("send_group_forward_msg", requestBody);
+          }
+          if (!e.isGroup) {
+            await e.bot.sendApi("send_private_forward_msg", requestBody);
+          }
+        } else {
+          const forwardMessage = await Bot.makeForwardMsg(forwardNodes);
+          await e.reply(forwardMessage);
+        }
 
         await browser.close();
         return;
