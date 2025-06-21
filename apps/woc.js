@@ -19,7 +19,7 @@ export class WocPlugin extends plugin {
       priority: -Infinity,
       rule: [
         {
-          reg: "^#?樱糖|yt|YT|yT|Yt",
+          reg: "^#?woc|wc|卧槽|我曹|我草|我操|我艹|窝草|卧草|我擦",
           fnc: "wocHandler",
           permission: "all",
         },
