@@ -15,7 +15,7 @@ git clone --depth=1 https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plu
 ## 安装依赖
 
 ```bash
-pnpm i--filter=sp-plugin
+pnpm i --filter=sp-plugin
 ```
 
 ### 为防止风控，所以安装Python来处理图片
