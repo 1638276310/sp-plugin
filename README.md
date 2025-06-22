@@ -4,12 +4,12 @@
 
 Github源
 ```bash
-git clone --depth=1 https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
+git clone https://ghfast.top/https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
 ```
 
 Gitee源
 ```bash
-git clone --depth=1 https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plugin/
+git clone https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plugin/
 ```
 
 ## 安装依赖
@@ -21,6 +21,10 @@ pnpm i --filter=sp-plugin
 ### 为防止风控，所以安装Python来处理图片
 
 ## 安装Python依赖
+
+```bash
+cd ./plugins/so-plugin/
+```
 
 ```text
 sudo apt install python3-pillow
