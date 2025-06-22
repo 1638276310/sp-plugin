@@ -26,7 +26,7 @@ pnpm i --filter=sp-plugin
 cd ./plugins/so-plugin/
 ```
 
-```text
+```bash
 sudo apt install python3-pillow
 ```
 
