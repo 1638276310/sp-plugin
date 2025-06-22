@@ -13,7 +13,7 @@ const getFrameworkName = () => {
     const parsedData = JSON.parse(packageData);
     return parsedData.name;
   } catch (e) {
-    console.error("Error reading package.json:", e);
+    logger.error("Error reading package.json:", e);
     return null;
   }
 };

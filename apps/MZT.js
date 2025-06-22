@@ -63,12 +63,12 @@ export class MZTPlugin extends plugin {
           (el) => el.textContent.trim()
         );
       } catch (error) {
-        console.error("获取文章标题失败:", error);
+        logger.error("获取文章标题失败:", error);
       }
       try {
         publishTime = await page.$eval("time", (el) => el.textContent.trim());
       } catch (error) {
-        console.error("获取发布时间失败:", error);
+        logger.error("获取发布时间失败:", error);
       }
 
       const imageUrls = new Set();
@@ -83,10 +83,10 @@ export class MZTPlugin extends plugin {
           if (imageCount >= 20) break;
           imageUrls.add(imgUrl);
           imageCount++;
-          console.log(`找到图片 (${imageCount}): ${imgUrl}`);
+          logger.log(`找到图片 (${imageCount}): ${imgUrl}`);
         }
       } else {
-        console.log("在初始页面上未找到符合条件的图片");
+        logger.log("在初始页面上未找到符合条件的图片");
       }
 
       while (imageCount < 20) {
@@ -94,11 +94,11 @@ export class MZTPlugin extends plugin {
           'div.uk-position-center-right.uk-overlay.uk-overlay-default.f-swich[action="next"]'
         );
         if (!nextButton) {
-          console.log("未找到下一页按钮，结束爬取");
+          logger.log("未找到下一页按钮，结束爬取");
           break;
         }
 
-        console.log("点击了下一页按钮，等待1秒...");
+        logger.log("点击了下一页按钮，等待1秒...");
         await nextButton.click();
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -112,17 +112,17 @@ export class MZTPlugin extends plugin {
             if (!imageUrls.has(imgUrl)) {
               imageUrls.add(imgUrl);
               imageCount++;
-              console.log(`找到图片 (${imageCount}): ${imgUrl}`);
+              logger.log(`找到图片 (${imageCount}): ${imgUrl}`);
             }
           }
         } else {
-          console.log("在新页面上未找到符合条件的图片元素");
+          logger.log("在新页面上未找到符合条件的图片元素");
         }
       }
 
       await browser.close();
       const uniqueImageUrls = Array.from(imageUrls);
-      console.log(`总共获取到 ${uniqueImageUrls.length} 张不重复的图片`);
+      logger.log(`总共获取到 ${uniqueImageUrls.length} 张不重复的图片`);
 
       if (uniqueImageUrls.length === 0) {
         await e.reply("没有找到任何图片，请稍后再试。", true);
@@ -151,7 +151,7 @@ export class MZTPlugin extends plugin {
       const forwardMsg = await Bot.makeForwardMsg(messages);
       await e.reply(forwardMsg);
     } catch (error) {
-      console.error(`操作失败：${error.message}`);
+      logger.error(`操作失败：${error.message}`);
       await e.reply("连接网页失败，请稍后再试", true);
     }
   }
@@ -190,7 +190,7 @@ export class MZTPlugin extends plugin {
           }
         }
       }
-      console.log(`检测到总页数: ${totalPages}`);
+      logger.log(`检测到总页数: ${totalPages}`);
 
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
@@ -212,7 +212,7 @@ export class MZTPlugin extends plugin {
         );
 
         allIds.push(...pageIds);
-        console.log(
+        logger.log(
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
         );
 
@@ -237,11 +237,11 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
-      console.log(`文章ID已保存到 ${filePath}`);
+      logger.log(`文章ID已保存到 ${filePath}`);
 
       await e.reply(`ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`, true);
     } catch (error) {
-      console.error("ID收集失败:", error);
+      logger.error("ID收集失败:", error);
       await e.reply(`ID收集失败: ${error.message}`, true);
     } finally {
       if (browser) await browser.close();
@@ -282,7 +282,7 @@ export class MZTPlugin extends plugin {
           }
         }
       }
-      console.log(`检测到总页数: ${totalPages}`);
+      logger.log(`检测到总页数: ${totalPages}`);
 
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
@@ -306,7 +306,7 @@ export class MZTPlugin extends plugin {
         );
 
         allIds.push(...pageIds);
-        console.log(
+        logger.log(
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个潮拍ID`
         );
 
@@ -331,14 +331,14 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
-      console.log(`潮拍ID已保存到 ${filePath}`);
+      logger.log(`潮拍ID已保存到 ${filePath}`);
 
       await e.reply(
         `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
         true
       );
     } catch (error) {
-      console.error("潮拍ID收集失败:", error);
+      logger.error("潮拍ID收集失败:", error);
       await e.reply(`潮拍ID收集失败: ${error.message}`, true);
     } finally {
       if (browser) await browser.close();
@@ -389,12 +389,12 @@ export class MZTPlugin extends plugin {
       );
 
       totalModels = models.length;
-      console.log(`找到 ${totalModels} 个模特`);
+      logger.log(`找到 ${totalModels} 个模特`);
 
       // 第二步：为每个模特收集写真ID
       for (const [index, model] of models.entries()) {
         processedCount = index + 1;
-        console.log(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
+        logger.log(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
 
         const modelIds = [];
         await page.goto(model.url, {
@@ -438,7 +438,7 @@ export class MZTPlugin extends plugin {
           );
 
           modelIds.push(...pageIds);
-          console.log(
+          logger.log(
             `  模特 ${model.name} 第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
           );
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -447,7 +447,7 @@ export class MZTPlugin extends plugin {
         // 保存模特数据
         modelData[model.name] = [...new Set(modelIds)];
         totalArticles += modelData[model.name].length;
-        console.log(
+        logger.log(
           `模特 ${model.name} 完成，共收集 ${
             modelData[model.name].length
           } 个唯一ID`
@@ -468,7 +468,7 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(modelData, null, 2), "utf8");
-      console.log(`模特ID已保存到 ${filePath}`);
+      logger.log(`模特ID已保存到 ${filePath}`);
 
       // 计算耗时
       const duration = Math.floor((Date.now() - startTime) / 1000);
@@ -484,7 +484,7 @@ export class MZTPlugin extends plugin {
         true
       );
     } catch (error) {
-      console.error("模特ID收集失败:", error);
+      logger.error("模特ID收集失败:", error);
       // 出错时发送错误消息
       await e.reply(
         `模特ID收集失败: ${error.message}\n` +

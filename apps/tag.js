@@ -74,7 +74,7 @@ export class SetuImageFetcher extends plugin {
     const tempDir = path.resolve("./plugins/sp-plugin/temp");
     fs.readdir(tempDir, (err, files) => {
       if (err) {
-        console.error("读取temp目录失败：", err);
+        logger.error("读取temp目录失败：", err);
         return;
       }
 
@@ -82,7 +82,7 @@ export class SetuImageFetcher extends plugin {
         const filePath = path.join(tempDir, file);
         fs.unlink(filePath, (err) => {
           if (err) {
-            console.error(`删除文件失败：${filePath}`, err);
+            logger.error(`删除文件失败：${filePath}`, err);
           }
         });
       });

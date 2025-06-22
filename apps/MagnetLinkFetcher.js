@@ -90,7 +90,7 @@ export class MagnetLinkFetcher extends plugin {
 
       return responseData;
     } catch (error) {
-      console.error("Puppeteer操作失败:", error);
+      logger.error("Puppeteer操作失败:", error);
       throw new Error(`网站访问失败: ${error.message}`);
     } finally {
       if (browser) {
@@ -198,7 +198,7 @@ export class MagnetLinkFetcher extends plugin {
                 );
                 return `base64://${modifiedBuffer.toString("base64")}`;
               } catch (error) {
-                console.error(`截图处理失败: ${error}`);
+                logger.error(`截图处理失败: ${error}`);
                 return null;
               }
             });
@@ -248,7 +248,7 @@ export class MagnetLinkFetcher extends plugin {
 
         return; // 成功则退出重试循环
       } catch (error) {
-        console.error(`第${3 - retryCount}次尝试失败:`, error);
+        logger.error(`第${3 - retryCount}次尝试失败:`, error);
         if (retryCount > 0) {
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
         } else {

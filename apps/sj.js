@@ -39983,7 +39983,7 @@ export class VideoFetcher extends plugin {
         writer.on("error", reject);
       });
     } catch (error) {
-      console.error("下载视频失败：", error);
+      logger.error("下载视频失败：", error);
       throw new Error("视频下载失败");
     }
   }
@@ -39992,7 +39992,7 @@ export class VideoFetcher extends plugin {
     try {
       fs.unlinkSync(filePath);
     } catch (error) {
-      console.error(`删除临时文件失败：${filePath}`, error);
+      logger.error(`删除临时文件失败：${filePath}`, error);
     }
   }
 
@@ -40024,7 +40024,7 @@ export class VideoFetcher extends plugin {
         }, recallConfig.time);
       }
     } catch (error) {
-      console.error("[Video Fetcher][_processVideo] 错误：", error);
+      logger.error("[Video Fetcher][_processVideo] 错误：", error);
     } finally {
       // 清理临时文件
       this.deleteTempFile(tempFilePath);

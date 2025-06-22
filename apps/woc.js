@@ -52,7 +52,7 @@ export class WocPlugin extends plugin {
       const ttl = await redis.ttl(key);
       return ttl > 0 ? ttl : 0;
     } catch (error) {
-      console.error(`冷却查询失败：${error.message}`);
+      logger.error(`冷却查询失败：${error.message}`);
       return 0;
     }
   }
@@ -82,7 +82,7 @@ export class WocPlugin extends plugin {
       const sendImages = lodash.sampleSize(images, this.config.imageLimit);
       await this.sendImages(sendImages);
     } catch (err) {
-      console.error(`操作失败：${err.message}`);
+      logger.error(`操作失败：${err.message}`);
       this.e.reply("连接神秘空间失败，请稍后再试", true);
     }
   }
@@ -95,7 +95,7 @@ export class WocPlugin extends plugin {
         .map((img) => img.replace(/.*src="([^"]+).*/, "$1"))
         .filter((url) => url.startsWith("http"));
     } catch (error) {
-      console.error(`图片解析失败：${error.message}`);
+      logger.error(`图片解析失败：${error.message}`);
       return [];
     }
   }
@@ -113,7 +113,7 @@ export class WocPlugin extends plugin {
       const forwardMsg = await Bot.makeForwardMsg(messages);
       await this.e.reply(forwardMsg);
     } catch (error) {
-      console.error(`图片发送失败：${error.message}`);
+      logger.error(`图片发送失败：${error.message}`);
       this.e.reply("图片发送过程中出现错误", true);
     }
   }
