@@ -246,7 +246,7 @@ export class VideoSearch extends plugin {
   async processVideoSearch(e) {
     await this.loadingPromise;
 
-    const match = e.msg.match(/^#?吃瓜\\s*(\\d+)$/);
+    const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
     if (!match) return;
 
     const videoId = match[1];
@@ -719,7 +719,7 @@ export class VideoSearch extends plugin {
   }
 
   async processSearchQuery(e) {
-    const keyword = e.msg.match(/^#?吃瓜搜索\\s*(\\S+)$/)?.[1]?.trim();
+    const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
     if (!keyword) return;
 
     await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, {
@@ -835,7 +835,7 @@ export class VideoSearch extends plugin {
   }
 
   async getPastArticles(e) {
-    const count = parseInt(e.msg.match(/^#?吃瓜(\\d+)个往期$/)?.[1], 10);
+    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
     if (!count) return;
 
     await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, {
