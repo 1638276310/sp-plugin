@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import puppeteer from "puppeteer";
 
-// 修改文件路径为 data/gossip-collector/ids.json
+// 文件路径：data/sp-plugin/gossip-collectorids.json
 const idsFilePath = path.join(
   process.cwd(),
   "data",
@@ -19,7 +19,7 @@ export class VideoSearch extends plugin {
   constructor() {
     super({
       name: "718吃瓜网视频搜索",
-      dsc极客: "从718吃瓜视频站提取视频m3u8地址和文章内容",
+      dsc: "从718吃瓜视频站提取视频m3u8地址和文章内容",
       event: "message",
       priority: -Infinity,
       rule: [
@@ -65,7 +65,7 @@ export class VideoSearch extends plugin {
     ];
 
     this.finalArticleIds = [];
-    this.excludedIds = []; // 新增：存储排除的ID
+    this.excludedIds = []; // 存储排除的ID
 
     this.loadingPromise = this.loadArticleIdsFromFile();
   }
@@ -127,7 +127,7 @@ export class VideoSearch extends plugin {
       };
 
       fs.writeFileSync(idsFilePath, JSON.stringify(dataToSave), "utf8");
-      logger.info(`文章极客ID和排除ID已保存到 ${idsFilePath}`);
+      logger.info(`文章ID和排除ID已保存到 ${idsFilePath}`);
     } catch (error) {
       logger.error("保存文章ID到文件失败:", error);
     }
@@ -136,8 +136,8 @@ export class VideoSearch extends plugin {
   async loadArticleIds() {
     let maxId = 0;
 
-    // 尝试所有备用URL
-    for (const base极客Url of this.videoUrls) {
+    // 修复点：统一使用 baseUrl 变量名（原为 base极客Url）
+    for (const baseUrl of this.videoUrls) {
       try {
         const browser = await puppeteer.launch({
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -192,7 +192,6 @@ export class VideoSearch extends plugin {
         await browser.close();
       } catch (error) {
         logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
-        // 继续尝试下一个URL
       }
     }
 
@@ -247,7 +246,7 @@ export class VideoSearch extends plugin {
   async processVideoSearch(e) {
     await this.loadingPromise;
 
-    const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
+    const match = e.msg.match(/^#?吃瓜\\s*(\\d+)$/);
     if (!match) return;
 
     const videoId = match[1];
@@ -429,7 +428,7 @@ export class VideoSearch extends plugin {
               if (imgUrl && !isAd) result.images.push(imgUrl);
             });
 
-            // 文章内容提取 - 修改部分开始
+            // 文章内容提取
             const blockquote = document.querySelector("blockquote");
             if (blockquote) {
               let nextElement = blockquote.nextElementSibling;
@@ -463,7 +462,6 @@ export class VideoSearch extends plugin {
                 nextElement = nextElement.nextElementSibling;
               }
             }
-            // 文章内容提取 - 修改部分结束
 
             return result;
           } catch (e) {
@@ -663,7 +661,6 @@ export class VideoSearch extends plugin {
       } catch (error) {
         lastError = error;
         logger.error(`尝试URL ${url} 获取内容失败:`, error);
-        // 继续尝试下一个URL
       }
     }
 
@@ -722,7 +719,7 @@ export class VideoSearch extends plugin {
   }
 
   async processSearchQuery(e) {
-    const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
+    const keyword = e.msg.match(/^#?吃瓜搜索\\s*(\\S+)$/)?.[1]?.trim();
     if (!keyword) return;
 
     await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, {
@@ -838,7 +835,7 @@ export class VideoSearch extends plugin {
   }
 
   async getPastArticles(e) {
-    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
+    const count = parseInt(e.msg.match(/^#?吃瓜(\\d+)个往期$/)?.[1], 10);
     if (!count) return;
 
     await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, {
