@@ -15,7 +15,17 @@ const idsFilePath = path.join(
   "gossip-collectorids.json"
 );
 
+/**
+ * 718吃瓜网视频搜索插件
+ * @class
+ * @classdesc 提供从718吃瓜视频站提取视频和文章内容的功能
+ */
 export class VideoSearch extends plugin {
+  /**
+   * 构造函数
+   * @constructs VideoSearch
+   * @description 初始化插件规则和配置
+   */
   constructor() {
     super({
       name: "718吃瓜网视频搜索",
@@ -46,6 +56,7 @@ export class VideoSearch extends plugin {
       ],
     });
 
+    /** @type {string[]} 视频站备用URL列表 */
     this.videoUrls = [
       "https://risky.zuiniude.xyz",
       "https://cloud.zuiniude.xyz",
@@ -64,12 +75,21 @@ export class VideoSearch extends plugin {
       "https://swath.ayfplus.com",
     ];
 
+    /** @type {string[]} 文章ID列表 */
     this.finalArticleIds = [];
+    /** @type {string[]} 已排除的无效ID列表 */
     this.excludedIds = []; // 存储排除的ID
 
+    /** @type {Promise} ID加载Promise */
     this.loadingPromise = this.loadArticleIdsFromFile();
   }
 
+  /**
+   * 从文件加载文章ID
+   * @async
+   * @returns {Promise<boolean>} 加载是否成功
+   * @description 从本地JSON文件加载缓存的文章ID和排除ID
+   */
   async loadArticleIdsFromFile() {
     try {
       const dir = path.dirname(idsFilePath);
@@ -103,6 +123,11 @@ export class VideoSearch extends plugin {
     }
   }
 
+  /**
+   * 保存文章ID到文件
+   * @async
+   * @description 将当前文章ID和排除ID保存到本地JSON文件
+   */
   async saveArticleIdsToFile() {
     try {
       const dir = path.dirname(idsFilePath);
@@ -122,6 +147,12 @@ export class VideoSearch extends plugin {
     }
   }
 
+  /**
+   * 加载文章ID
+   * @async
+   * @returns {Promise<boolean>} 加载是否成功
+   * @description 从视频站抓取最新文章ID范围并生成ID列表
+   */
   async loadArticleIds() {
     let maxId = 0;
 
@@ -207,6 +238,12 @@ export class VideoSearch extends plugin {
     }
   }
 
+  /**
+   * 自动滚动到页面底部
+   * @async
+   * @param {Page} page - Puppeteer页面对象
+   * @description 模拟用户滚动行为加载动态内容
+   */
   async autoScrollToBottom(page) {
     await page.evaluate(async () => {
       await new Promise((resolve) => {
@@ -231,6 +268,12 @@ export class VideoSearch extends plugin {
     });
   }
 
+  /**
+   * 处理视频搜索请求
+   * @async
+   * @param {Object} e - 消息事件对象
+   * @description 根据ID从视频站抓取视频和文章内容
+   */
   async processVideoSearch(e) {
     await this.loadingPromise;
 
@@ -679,6 +722,12 @@ export class VideoSearch extends plugin {
     }
   }
 
+  /**
+   * 随机获取吃瓜视频
+   * @async
+   * @param {Object} e - 消息事件对象
+   * @description 从未排除的ID中随机选择一个进行搜索
+   */
   async randomVideoSearch(e) {
     await this.loadingPromise;
 
@@ -705,6 +754,12 @@ export class VideoSearch extends plugin {
     });
   }
 
+  /**
+   * 处理关键词搜索
+   * @async
+   * @param {Object} e - 消息事件对象
+   * @description 根据关键词搜索相关文章
+   */
   async processSearchQuery(e) {
     const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
     if (!keyword) return;
@@ -820,6 +875,12 @@ export class VideoSearch extends plugin {
     );
   }
 
+  /**
+   * 获取往期文章
+   * @async
+   * @param {Object} e - 消息事件对象
+   * @description 获取指定数量的往期文章信息
+   */
   async getPastArticles(e) {
     const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
     if (!count) return;
@@ -937,6 +998,12 @@ export class VideoSearch extends plugin {
     );
   }
 
+  /**
+   * 更新文章ID列表
+   * @async
+   * @param {Object} e - 消息事件对象
+   * @description 重新从视频站抓取最新文章ID
+   */
   async updateArticleIds(e) {
     await e.reply("正在更新文章ID，请稍等...", false, { at: true });
     const success = await this.loadArticleIds();
