@@ -23,11 +23,11 @@ pnpm i --filter=sp-plugin
 ## 安装Python依赖
 
 ```bash
-cd ./plugins/so-plugin/
+cd ./plugins/sp-plugin/
 ```
 
 ```bash
-sudo apt install python3-pillow
+sudo apt install python3-pil
 ```
 
 ## 说明
