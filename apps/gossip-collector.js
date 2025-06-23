@@ -81,34 +81,24 @@ export class VideoSearch extends plugin {
 
       // 确保文件存在
       if (!fs.existsSync(idsFilePath)) {
-        fs.writeFileSync(idsFilePath, "[]", "utf8");
-        logger.info(`创建空的文章ID文件: ${idsFilePath}`);
+        const initialData = { articleIds: [], excludedIds: [] };
+        fs.writeFileSync(idsFilePath, JSON.stringify(initialData), "utf8");
+        logger.info(`创建初始ID文件: ${idsFilePath}`);
       }
 
       const data = fs.readFileSync(idsFilePath, "utf8");
-      let parsedData;
+      const parsedData = JSON.parse(data);
 
-      // 兼容旧格式和新格式
-      if (data.startsWith("[")) {
-        // 旧格式：纯数组
-        this.finalArticleIds = JSON.parse(data);
-        this.excludedIds = [];
-        logger.info(
-          `成功从文件加载 ${this.finalArticleIds.length} 个文章ID (旧格式)`
-        );
-      } else {
-        // 新格式：包含两个数组的对象
-        parsedData = JSON.parse(data);
-        this.finalArticleIds = parsedData.articleIds || [];
-        this.excludedIds = parsedData.excludedIds || [];
-        logger.info(
-          `成功从文件加载 ${this.finalArticleIds.length} 个文章ID 和 ${this.excludedIds.length} 个排除ID`
-        );
-      }
+      this.finalArticleIds = parsedData.articleIds || [];
+      this.excludedIds = parsedData.excludedIds || [];
+
+      logger.info(
+        `成功加载 ${this.finalArticleIds.length} 个文章ID 和 ${this.excludedIds.length} 个排除ID`
+      );
 
       return true;
     } catch (error) {
-      logger.error("从文件加载文章ID失败，尝试重新加载:", error);
+      logger.error("加载ID文件失败，尝试重新生成:", error);
       return this.loadArticleIds();
     }
   }
@@ -120,23 +110,21 @@ export class VideoSearch extends plugin {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      // 保存两个数组
       const dataToSave = {
         articleIds: this.finalArticleIds,
         excludedIds: this.excludedIds,
       };
 
       fs.writeFileSync(idsFilePath, JSON.stringify(dataToSave), "utf8");
-      logger.info(`文章ID和排除ID已保存到 ${idsFilePath}`);
+      logger.info(`ID数据已保存到 ${idsFilePath}`);
     } catch (error) {
-      logger.error("保存文章ID到文件失败:", error);
+      logger.error("保存ID文件失败:", error);
     }
   }
 
   async loadArticleIds() {
     let maxId = 0;
 
-    // 修复点：统一使用 baseUrl 变量名（原为 base极客Url）
     for (const baseUrl of this.videoUrls) {
       try {
         const browser = await puppeteer.launch({
@@ -488,22 +476,22 @@ export class VideoSearch extends plugin {
             nickname: e.sender.nickname,
             message: [
               `✅视频信息获取成功！\n` +
-                `🆔文章ID: ${videoId}\n` +
-                (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : "") +
-                (pageInfo.publishTime
-                  ? `📅发布时间: ${pageInfo.publishTime}\n`
-                  : "") +
-                (pageInfo.publishedTime
-                  ? `📅创建时间: ${pageInfo.publishedTime
-                      .replace("T", "——")
-                      .replace(/\+.*$/, "")}\n`
-                  : "") +
-                (pageInfo.modifiedTime
-                  ? `📅最后修改时间: ${pageInfo.modifiedTime
-                      .replace("T", "——")
-                      .replace(/\+.*$/, "")}\n`
-                  : "") +
-                `📛请勿用于非法用途`,
+              `🆔文章ID: ${videoId}\n` +
+              (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : "") +
+              (pageInfo.publishTime
+                ? `📅发布时间: ${pageInfo.publishTime}\n`
+                : "") +
+              (pageInfo.publishedTime
+                ? `📅创建时间: ${pageInfo.publishedTime
+                  .replace("T", "——")
+                  .replace(/\+.*$/, "")}\n`
+                : "") +
+              (pageInfo.modifiedTime
+                ? `📅最后修改时间: ${pageInfo.modifiedTime
+                  .replace("T", "——")
+                  .replace(/\+.*$/, "")}\n`
+                : "") +
+              `📛请勿用于非法用途`,
             ],
           },
         ];
@@ -683,8 +671,7 @@ export class VideoSearch extends plugin {
       await e.reply("该ID不存在", false, { at: true });
     } else {
       await e.reply(
-        `未找到视频地址，请稍后重试。错误信息: ${
-          lastError?.message || "未知错误"
+        `未找到视频地址，请稍后重试。错误信息: ${lastError?.message || "未知错误"
         }`,
         false,
         { at: true }
@@ -826,8 +813,7 @@ export class VideoSearch extends plugin {
 
     await browser.close();
     await e.reply(
-      `❌ 未找到相关文章，请稍后重试。错误信息: ${
-        lastError?.message || "未知错误"
+      `❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"
       }`,
       false,
       { at: true }
