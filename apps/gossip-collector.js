@@ -519,22 +519,22 @@ export class VideoSearch extends plugin {
             nickname: e.sender.nickname,
             message: [
               `✅视频信息获取成功！\n` +
-              `🆔文章ID: ${videoId}\n` +
-              (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : "") +
-              (pageInfo.publishTime
-                ? `📅发布时间: ${pageInfo.publishTime}\n`
-                : "") +
-              (pageInfo.publishedTime
-                ? `📅创建时间: ${pageInfo.publishedTime
-                  .replace("T", "——")
-                  .replace(/\+.*$/, "")}\n`
-                : "") +
-              (pageInfo.modifiedTime
-                ? `📅最后修改时间: ${pageInfo.modifiedTime
-                  .replace("T", "——")
-                  .replace(/\+.*$/, "")}\n`
-                : "") +
-              `📛请勿用于非法用途`,
+                `🆔文章ID: ${videoId}\n` +
+                (pageInfo.title ? `📝标题: ${pageInfo.title}\n` : "") +
+                (pageInfo.publishTime
+                  ? `📅发布时间: ${pageInfo.publishTime}\n`
+                  : "") +
+                (pageInfo.publishedTime
+                  ? `📅创建时间: ${pageInfo.publishedTime
+                      .replace("T", "——")
+                      .replace(/\+.*$/, "")}\n`
+                  : "") +
+                (pageInfo.modifiedTime
+                  ? `📅最后修改时间: ${pageInfo.modifiedTime
+                      .replace("T", "——")
+                      .replace(/\+.*$/, "")}\n`
+                  : "") +
+                `📛请勿用于非法用途`,
             ],
           },
         ];
@@ -714,7 +714,8 @@ export class VideoSearch extends plugin {
       await e.reply("该ID不存在", false, { at: true });
     } else {
       await e.reply(
-        `未找到视频地址，请稍后重试。错误信息: ${lastError?.message || "未知错误"
+        `未找到视频地址，请稍后重试。错误信息: ${
+          lastError?.message || "未知错误"
         }`,
         false,
         { at: true }
@@ -868,7 +869,8 @@ export class VideoSearch extends plugin {
 
     await browser.close();
     await e.reply(
-      `❌ 未找到相关文章，请稍后重试。错误信息: ${lastError?.message || "未知错误"
+      `❌ 未找到相关文章，请稍后重试。错误信息: ${
+        lastError?.message || "未知错误"
       }`,
       false,
       { at: true }
