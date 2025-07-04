@@ -157,6 +157,10 @@ export class MZTPlugin extends plugin {
   }
 
   async fetchAllMZTArticleIds(e) {
+    if (!e.isMaster) {
+      e.reply("仅主人可用", true);
+      return true;
+    }
     await e.reply("开始更新写真ID列表，这可能需要几分钟时间...", true);
     const baseUrl = "https://kkmzt.com/photo/";
     const allIds = [];
@@ -249,6 +253,10 @@ export class MZTPlugin extends plugin {
   }
 
   async fetchAllBeautyArticleIds(e) {
+    if (!e.isMaster) {
+      e.reply("仅主人可用", true);
+      return true;
+    }
     await e.reply("开始更新潮拍ID列表，这可能需要几分钟时间...", true);
     const baseUrl = "https://kkmzt.com/beauty/";
     const allIds = [];
@@ -346,6 +354,10 @@ export class MZTPlugin extends plugin {
   }
 
   async fetchAllModelArticleIds(e) {
+    if (!e.isMaster) {
+      e.reply("仅主人可用", true);
+      return true;
+    }
     // 只在开始时发送一次消息
     const startTime = Date.now();
     await e.reply("开始更新模特ID列表，这可能需要较长时间...", true);
