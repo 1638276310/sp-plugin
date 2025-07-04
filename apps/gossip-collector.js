@@ -1007,6 +1007,11 @@ export class VideoSearch extends plugin {
    * @description 重新从视频站抓取最新文章ID
    */
   async updateArticleIds(e) {
+    if (!e.isMaster) {
+      e.reply("仅主人可用", true);
+      return true;
+    }
+
     await e.reply("正在更新文章ID，请稍等...", false, { at: true });
     const success = await this.loadArticleIds();
     if (success) {
