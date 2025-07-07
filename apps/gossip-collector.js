@@ -58,37 +58,37 @@ export class VideoSearch extends plugin {
 
     /** @type {string[]} 视频站备用URL列表 */
     this.videoUrls = [
-      "https://risky.zuiniude.xyz",
-      "https://cloud.zuiniude.xyz",
-      "https://fence.zuiniude.xyz",
-      "https://plane.zuiniude.xyz",
-      "https://blend.zuiniude.xyz",
       "https://shrew.zzqqaa.com",
       "https://swoop.zzqqaa.com",
       "https://plaza.zzqqaa.com",
       "https://climb.wulipolo.com",
       "https://chomp.wulipolo.com",
-      "https://piano.ayfplus.com",
-      "https://brood.ayfplus.com",
-      "https://quirk.ayfplus.com",
-      "https://swipe.ayfplus.com",
-      "https://swath.ayfplus.com",
     ];
 
     /** @type {string[]} 文章ID列表 */
     this.finalArticleIds = [];
-    /** @type {string[]} 已排除的无效ID列表 */
-    this.excludedIds = []; // 存储排除的ID
 
-    /** @type {Promise} ID加载Promise */
-    this.loadingPromise = this.loadArticleIdsFromFile();
+    /**
+     * 定时任务配置
+     * @type {Object}
+     * @property {string} cron - cron表达式 (每天21:00 UTC执行，相当于北京时间次日5:00)
+     * @property {string} name - 任务名称
+     * @property {Function} fnc - 任务处理函数
+     * @property {boolean} log - 是否记录日志
+     */
+    this.task = {
+      cron: "0 30 2 * * ? ", // 每天凌晨2:30执行
+      name: "自动更新吃瓜ID",
+      fnc: this.updateArticleIds.bind(this, null), // 绑定空事件对象
+      log: true,
+    };
   }
 
   /**
    * 从文件加载文章ID
    * @async
    * @returns {Promise<boolean>} 加载是否成功
-   * @description 从本地JSON文件加载缓存的文章ID和排除ID
+   * @description 从本地JSON文件加载缓存的文章ID
    */
   async loadArticleIdsFromFile() {
     try {
@@ -101,7 +101,7 @@ export class VideoSearch extends plugin {
 
       // 确保文件存在
       if (!fs.existsSync(idsFilePath)) {
-        const initialData = { articleIds: [], excludedIds: [] };
+        const initialData = { articleIds: [] };
         fs.writeFileSync(idsFilePath, JSON.stringify(initialData), "utf8");
         logger.info(`创建初始ID文件: ${idsFilePath}`);
       }
@@ -110,11 +110,8 @@ export class VideoSearch extends plugin {
       const parsedData = JSON.parse(data);
 
       this.finalArticleIds = parsedData.articleIds || [];
-      this.excludedIds = parsedData.excludedIds || [];
 
-      logger.info(
-        `成功加载 ${this.finalArticleIds.length} 个文章ID 和 ${this.excludedIds.length} 个排除ID`
-      );
+      logger.info(`成功加载 ${this.finalArticleIds.length} 个文章ID`);
 
       return true;
     } catch (error) {
@@ -126,7 +123,7 @@ export class VideoSearch extends plugin {
   /**
    * 保存文章ID到文件
    * @async
-   * @description 将当前文章ID和排除ID保存到本地JSON文件
+   * @description 将当前文章ID保存到本地JSON文件
    */
   async saveArticleIdsToFile() {
     try {
@@ -137,7 +134,6 @@ export class VideoSearch extends plugin {
 
       const dataToSave = {
         articleIds: this.finalArticleIds,
-        excludedIds: this.excludedIds,
       };
 
       fs.writeFileSync(idsFilePath, JSON.stringify(dataToSave), "utf8");
@@ -154,68 +150,70 @@ export class VideoSearch extends plugin {
    * @description 从视频站抓取最新文章ID范围并生成ID列表
    */
   async loadArticleIds() {
+    // 只使用第一个URL
+    const baseUrl = this.videoUrls[0];
     let maxId = 0;
 
-    for (const baseUrl of this.videoUrls) {
-      try {
-        const browser = await puppeteer.launch({
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
-          headless: "new",
-        });
+    try {
+      const browser = await puppeteer.launch({
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        headless: "new",
+      });
 
-        const page = await browser.newPage();
-        await page.setUserAgent(
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        );
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
 
-        await page.setRequestInterception(true);
-        page.on("request", (req) => {
-          if (
-            ["stylesheet", "font", "image", "media", "script"].includes(
-              req.resourceType()
-            )
-          ) {
-            req.abort();
-          } else {
-            req.continue();
-          }
-        });
-
-        await page.goto(`${baseUrl}/archives.html`, {
-          timeout: 120000,
-          waitUntil: "domcontentloaded",
-        });
-
-        // 等待第一个.brick元素加载
-        await page.waitForSelector('.brick a[href^="/archives/"]', {
-          timeout: 120000,
-        });
-
-        // 获取第一个文章的ID
-        const firstId = await page.evaluate(() => {
-          const firstBrickLink = document.querySelector(
-            '.brick a[href^="/archives/"]'
-          );
-          if (firstBrickLink) {
-            const match = firstBrickLink.href.match(/\/archives\/(\d+)/);
-            return match ? parseInt(match[1]) : null;
-          }
-          return null;
-        });
-
-        if (firstId && firstId > maxId) {
-          maxId = firstId;
-          logger.info(`从 ${baseUrl} 获取到最大ID: ${maxId}`);
+      await page.setRequestInterception(true);
+      page.on("request", (req) => {
+        if (
+          ["stylesheet", "font", "image", "media", "script"].includes(
+            req.resourceType()
+          )
+        ) {
+          req.abort();
+        } else {
+          req.continue();
         }
+      });
 
-        await browser.close();
-      } catch (error) {
-        logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
+      await page.goto(`${baseUrl}/archives.html`, {
+        timeout: 120000,
+        waitUntil: "domcontentloaded",
+      });
+
+      // 修改点：等待第二个.brick元素加载
+      await page.waitForSelector('.brick:nth-child(2) a[href^="/archives/"]', {
+        timeout: 120000,
+      });
+
+      // 修改点：获取第二个文章的ID
+      const secondId = await page.evaluate(() => {
+        const bricks = document.querySelectorAll('.brick a[href^="/archives/"]');
+        if (bricks.length >= 2) {
+          const secondBrickLink = bricks[1];
+          const match = secondBrickLink.href.match(/\/archives\/(\d+)/);
+          return match ? parseInt(match[1]) : null;
+        }
+        return null;
+      });
+
+      if (secondId && secondId > maxId) {
+        maxId = secondId;
+        logger.info(`从 ${baseUrl} 获取到最大ID: ${maxId}`);
       }
+
+      await browser.close();
+    } catch (error) {
+      logger.error(`尝试URL ${baseUrl}/archives.html 失败:`, error);
+      // 第一个URL失败直接返回
+      this.finalArticleIds = [];
+      await this.saveArticleIdsToFile();
+      return false;
     }
 
     if (maxId > 0) {
-      // 生成从maxId到1的ID数组
       this.finalArticleIds = Array.from({ length: maxId }, (_, i) =>
         (maxId - i).toString()
       );
@@ -223,16 +221,11 @@ export class VideoSearch extends plugin {
         `生成 ${this.finalArticleIds.length} 个文章ID，从 ${maxId} 到 1`
       );
 
-      // 保留现有的排除ID
-      this.excludedIds = this.excludedIds || [];
-
       await this.saveArticleIdsToFile();
       return true;
     } else {
-      // 如果所有URL都失败
-      logger.error("所有备用URL都无法加载文章ID");
+      logger.error("无法加载文章ID");
       this.finalArticleIds = [];
-      this.excludedIds = [];
       await this.saveArticleIdsToFile();
       return false;
     }
@@ -277,16 +270,10 @@ export class VideoSearch extends plugin {
   async processVideoSearch(e) {
     await this.loadingPromise;
 
-    const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
+    const match = e.msg.match(/^#?吃瓜\\s*(\\d+)$/);
     if (!match) return;
 
     const videoId = match[1];
-
-    // 检查ID是否在排除列表中
-    if (this.excludedIds.includes(videoId)) {
-      await e.reply("嘿~哥们！", false, { at: true });
-      return;
-    }
 
     if (!this.finalArticleIds.includes(videoId)) {
       await e.reply("该ID不存在", false, { at: true });
@@ -697,16 +684,9 @@ export class VideoSearch extends plugin {
 
     await browser.close();
 
-    // 如果所有URL都失败或者没有找到有效内容，添加到排除列表
-    if (
-      (allUrlsFailed || !contentFound) &&
-      !this.excludedIds.includes(videoId)
-    ) {
-      this.excludedIds.push(videoId);
-      await this.saveArticleIdsToFile();
-      logger.info(
-        `已将ID ${videoId} 添加到排除列表（所有URL均不可用或内容为空）`
-      );
+    // 如果所有URL都失败或者没有找到有效内容
+    if (allUrlsFailed || !contentFound) {
+      logger.info(`ID ${videoId} 所有URL均不可用或内容为空`);
     }
 
     // 根据检查结果决定回复内容
@@ -732,18 +712,13 @@ export class VideoSearch extends plugin {
   async randomVideoSearch(e) {
     await this.loadingPromise;
 
-    // 过滤掉排除的ID
-    const availableIds = this.finalArticleIds.filter(
-      (id) => !this.excludedIds.includes(id)
-    );
-
-    if (availableIds.length === 0) {
+    if (this.finalArticleIds.length === 0) {
       await e.reply("没有可用的随机视频ID，请检查文章id", false, { at: true });
       return;
     }
 
-    const randomIndex = Math.floor(Math.random() * availableIds.length);
-    const randomVideoId = availableIds[randomIndex];
+    const randomIndex = Math.floor(Math.random() * this.finalArticleIds.length);
+    const randomVideoId = this.finalArticleIds[randomIndex];
 
     await e.reply(`随机选择视频ID: ${randomVideoId}，正在搜索...`, false, {
       at: true,
@@ -762,7 +737,7 @@ export class VideoSearch extends plugin {
    * @description 根据关键词搜索相关文章
    */
   async processSearchQuery(e) {
-    const keyword = e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)?.[1]?.trim();
+    const keyword = e.msg.match(/^#?吃瓜搜索\\s*(\\S+)$/)?.[1]?.trim();
     if (!keyword) return;
 
     await e.reply(`正在搜索包含关键词 "${keyword}" 的文章，请稍等...`, false, {
@@ -841,17 +816,10 @@ export class VideoSearch extends plugin {
         ];
 
         searchResults.slice(0, 30).forEach((result, index) => {
-          // 检查ID是否被排除
-          const isExcluded = this.excludedIds.includes(result.id);
-          const statusMark = isExcluded ? " (已失效)" : "";
-
           forwardNodes.push({
             user_id: e.user_id,
             nickname: e.sender.nickname,
-            message: [
-              `${index + 1}. ${result.title}${statusMark}\n`,
-              `📌 ID: ${result.id}`,
-            ],
+            message: [`${index + 1}. ${result.title}\n`, `📌 ID: ${result.id}`],
           });
         });
 
@@ -884,7 +852,7 @@ export class VideoSearch extends plugin {
    * @description 获取指定数量的往期文章信息
    */
   async getPastArticles(e) {
-    const count = parseInt(e.msg.match(/^#?吃瓜(\d+)个往期$/)?.[1], 10);
+    const count = parseInt(e.msg.match(/^#?吃瓜(\\d+)个往期$/)?.[1], 10);
     if (!count) return;
 
     await e.reply(`正在获取 ${count} 个往期文章，请稍等...`, false, {
@@ -966,15 +934,11 @@ export class VideoSearch extends plugin {
         ];
 
         archiveInfo.forEach((article, index) => {
-          // 检查ID是否被排除
-          const isExcluded = this.excludedIds.includes(article.id);
-          const statusMark = isExcluded ? " (已失效)" : "";
-
           forwardNodes.push({
             user_id: e.user_id,
             nickname: e.sender.nickname,
             message: [
-              `${index + 1}. 📝标题: ${article.title}${statusMark}\n`,
+              `${index + 1}. 📝标题: ${article.title}\n`,
               `🆔ID: ${article.id}\n`,
             ],
           });
@@ -1007,17 +971,31 @@ export class VideoSearch extends plugin {
    * @description 重新从视频站抓取最新文章ID
    */
   async updateArticleIds(e) {
-    if (!e.isMaster) {
+    // 如果是定时任务调用，e可能为null
+    if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
 
-    await e.reply("正在更新文章ID，请稍等...", false, { at: true });
-    const success = await this.loadArticleIds();
-    if (success) {
-      await e.reply("文章ID更新成功！", false, { at: true });
+    if (e) {
+      await e.reply("正在更新文章ID，请稍等...", false, { at: true });
     } else {
-      await e.reply("文章ID更新失败，请稍后重试。", false, { at: true });
+      logger.info("[定时任务] 开始自动更新吃瓜ID");
+    }
+
+    const success = await this.loadArticleIds();
+    if (e) {
+      if (success) {
+        await e.reply("文章ID更新成功！", false, { at: true });
+      } else {
+        await e.reply("文章ID更新失败，请稍后重试。", false, { at: true });
+      }
+    } else {
+      if (success) {
+        logger.info("[定时任务] 吃瓜ID更新成功");
+      } else {
+        logger.error("[定时任务] 吃瓜ID更新失败");
+      }
     }
   }
 }
