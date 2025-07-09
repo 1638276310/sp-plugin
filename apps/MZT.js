@@ -83,10 +83,10 @@ export class MZTPlugin extends plugin {
           if (imageCount >= 20) break;
           imageUrls.add(imgUrl);
           imageCount++;
-          logger.log(`找到图片 (${imageCount}): ${imgUrl}`);
+          logger.info(`找到图片 (${imageCount}): ${imgUrl}`);
         }
       } else {
-        logger.log("在初始页面上未找到符合条件的图片");
+        logger.info("在初始页面上未找到符合条件的图片");
       }
 
       while (imageCount < 20) {
@@ -94,11 +94,11 @@ export class MZTPlugin extends plugin {
           'div.uk-position-center-right.uk-overlay.uk-overlay-default.f-swich[action="next"]'
         );
         if (!nextButton) {
-          logger.log("未找到下一页按钮，结束爬取");
+          logger.info("未找到下一页按钮，结束爬取");
           break;
         }
 
-        logger.log("点击了下一页按钮，等待1秒...");
+        logger.info("点击了下一页按钮，等待1秒...");
         await nextButton.click();
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -112,17 +112,17 @@ export class MZTPlugin extends plugin {
             if (!imageUrls.has(imgUrl)) {
               imageUrls.add(imgUrl);
               imageCount++;
-              logger.log(`找到图片 (${imageCount}): ${imgUrl}`);
+              logger.info(`找到图片 (${imageCount}): ${imgUrl}`);
             }
           }
         } else {
-          logger.log("在新页面上未找到符合条件的图片元素");
+          logger.info("在新页面上未找到符合条件的图片元素");
         }
       }
 
       await browser.close();
       const uniqueImageUrls = Array.from(imageUrls);
-      logger.log(`总共获取到 ${uniqueImageUrls.length} 张不重复的图片`);
+      logger.info(`总共获取到 ${uniqueImageUrls.length} 张不重复的图片`);
 
       if (uniqueImageUrls.length === 0) {
         await e.reply("没有找到任何图片，请稍后再试。", true);
@@ -194,7 +194,7 @@ export class MZTPlugin extends plugin {
           }
         }
       }
-      logger.log(`检测到总页数: ${totalPages}`);
+      logger.info(`检测到总页数: ${totalPages}`);
 
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
@@ -216,7 +216,7 @@ export class MZTPlugin extends plugin {
         );
 
         allIds.push(...pageIds);
-        logger.log(
+        logger.info(
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
         );
 
@@ -241,7 +241,7 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
-      logger.log(`文章ID已保存到 ${filePath}`);
+      logger.info(`文章ID已保存到 ${filePath}`);
 
       await e.reply(`ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`, true);
     } catch (error) {
@@ -290,7 +290,7 @@ export class MZTPlugin extends plugin {
           }
         }
       }
-      logger.log(`检测到总页数: ${totalPages}`);
+      logger.info(`检测到总页数: ${totalPages}`);
 
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
@@ -314,7 +314,7 @@ export class MZTPlugin extends plugin {
         );
 
         allIds.push(...pageIds);
-        logger.log(
+        logger.info(
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个潮拍ID`
         );
 
@@ -339,7 +339,7 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
-      logger.log(`潮拍ID已保存到 ${filePath}`);
+      logger.info(`潮拍ID已保存到 ${filePath}`);
 
       await e.reply(
         `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
@@ -401,12 +401,12 @@ export class MZTPlugin extends plugin {
       );
 
       totalModels = models.length;
-      logger.log(`找到 ${totalModels} 个模特`);
+      logger.info(`找到 ${totalModels} 个模特`);
 
       // 第二步：为每个模特收集写真ID
       for (const [index, model] of models.entries()) {
         processedCount = index + 1;
-        logger.log(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
+        logger.info(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
 
         const modelIds = [];
         await page.goto(model.url, {
@@ -450,7 +450,7 @@ export class MZTPlugin extends plugin {
           );
 
           modelIds.push(...pageIds);
-          logger.log(
+          logger.info(
             `  模特 ${model.name} 第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
           );
           await new Promise((resolve) => setTimeout(resolve, 500));
@@ -459,7 +459,7 @@ export class MZTPlugin extends plugin {
         // 保存模特数据
         modelData[model.name] = [...new Set(modelIds)];
         totalArticles += modelData[model.name].length;
-        logger.log(
+        logger.info(
           `模特 ${model.name} 完成，共收集 ${
             modelData[model.name].length
           } 个唯一ID`
@@ -480,7 +480,7 @@ export class MZTPlugin extends plugin {
       }
 
       fs.writeFileSync(filePath, JSON.stringify(modelData, null, 2), "utf8");
-      logger.log(`模特ID已保存到 ${filePath}`);
+      logger.info(`模特ID已保存到 ${filePath}`);
 
       // 计算耗时
       const duration = Math.floor((Date.now() - startTime) / 1000);
