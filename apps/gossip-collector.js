@@ -50,7 +50,7 @@ export class VideoSearch extends plugin {
           fnc: "getPastArticles",
         },
         {
-          reg: "^(#)?更新吃瓜ID$",
+          reg: "^(#)?更新吃瓜(ID|id)$",
           fnc: "updateArticleIds",
         },
       ],
