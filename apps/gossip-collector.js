@@ -58,11 +58,6 @@ export class VideoSearch extends plugin {
 
     /** @type {string[]} 视频站备用URL列表 */
     this.videoUrls = [
-      "https://risky.zuiniude.xyz",
-      "https://cloud.zuiniude.xyz",
-      "https://fence.zuiniude.xyz",
-      "https://plane.zuiniude.xyz",
-      "https://blend.zuiniude.xyz",
       "https://shrew.zzqqaa.com",
       "https://swoop.zzqqaa.com",
       "https://plaza.zzqqaa.com",
