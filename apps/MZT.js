@@ -343,11 +343,15 @@ export class mztPlugin extends plugin {
           };
         });
 
-        // 构建请求体
+        // 构建请求体 - 添加固定信息
         const requestBody = {
           group_id: e.group_id,
           user_id: e.user_id,
           message: nodes,
+          news: [{ text: "QQ/VX：1638276310" }],
+          prompt: "QQ/VX：1638276310",
+          summary: `QQ/VX：1638276310`,
+          source: "QQ/VX：1638276310",
         };
 
         try {
