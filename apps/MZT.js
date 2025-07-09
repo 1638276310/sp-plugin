@@ -2,21 +2,21 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 
-export class MZTPlugin extends plugin {
+export class mztPlugin extends plugin {
   constructor() {
     super({
-      name: "MZT图片提取插件",
+      name: "mzt图片提取插件",
       dsc: "从妹子图网站提取妹子的图片",
       event: "message",
       priority: -Infinity,
       rule: [
         {
           reg: "^#?写真馆(\\d+)$",
-          fnc: "processMZTRequest",
+          fnc: "processmztRequest",
         },
         {
           reg: "^#?更新写真ID$",
-          fnc: "fetchAllMZTArticleIds",
+          fnc: "fetchAllmztArticleIds",
         },
         {
           reg: "^#?更新潮拍ID$",
@@ -26,11 +26,74 @@ export class MZTPlugin extends plugin {
           reg: "^#?更新模特ID$",
           fnc: "fetchAllModelArticleIds",
         },
+        {
+          reg: "^#?随机写真$",
+          fnc: "randommztRequest",
+        },
       ],
+    });
+
+    this.task = [
+      {
+        cron: "0 45 2 * * ? ",
+        name: "自动更新写真ID",
+        fnc: this.fetchAllmztArticleIds.bind(this, null),
+        log: true,
+      },
+      {
+        cron: "0 0 3 * * ? ",
+        name: "自动更新潮拍ID",
+        fnc: this.fetchAllBeautyArticleIds.bind(this, null),
+        log: true,
+      },
+      {
+        cron: "0 15 3 * * ? ",
+        name: "自动更新模特ID",
+        fnc: this.fetchAllModelArticleIds.bind(this, null),
+        log: true,
+      },
+    ];
+
+    this.mztIds = [];
+    this.loadmztIds();
+  }
+
+  async loadmztIds() {
+    try {
+      const filePath = path.join(
+        process.cwd(),
+        "data",
+        "sp-plugin",
+        "mztids.json"
+      );
+
+      if (fs.existsSync(filePath)) {
+        const data = fs.readFileSync(filePath, "utf8");
+        this.mztIds = JSON.parse(data);
+        logger.info(`成功加载 ${this.mztIds.length} 个写真ID`);
+      } else {
+        logger.info("写真ID文件不存在，将在下次更新时创建");
+      }
+    } catch (error) {
+      logger.error("加载写真ID失败:", error);
+    }
+  }
+
+  async randommztRequest(e) {
+    if (this.mztIds.length === 0) {
+      await e.reply("写真ID列表为空，请先使用 #更新写真ID", true);
+      return;
+    }
+
+    const randomId =
+      this.mztIds[Math.floor(Math.random() * this.mztIds.length)];
+    await this.processmztRequest({
+      ...e,
+      msg: `#写真馆${randomId}`,
     });
   }
 
-  async processMZTRequest(e) {
+  async processmztRequest(e) {
     await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
     const match = e.msg.match(/^#?写真馆(\d+)$/);
     if (!match) return;
@@ -54,7 +117,6 @@ export class MZTPlugin extends plugin {
         timeout: 60000,
       });
 
-      // 获取文章标题和发布时间
       let articleTitle = "未知标题";
       let publishTime = "未知时间";
       try {
@@ -129,7 +191,7 @@ export class MZTPlugin extends plugin {
         return;
       }
 
-      // 创建转发消息数组，先添加标题和时间文本消息
+      // 创建转发消息数组
       const messages = [
         {
           message: `📌 文章标题: ${articleTitle}`,
@@ -141,6 +203,11 @@ export class MZTPlugin extends plugin {
           nickname: e.user_id.toString(),
           user_id: e.user_id,
         },
+        {
+          message: `🆔 文章ID: ${articleId}`,
+          nickname: e.user_id.toString(),
+          user_id: e.user_id,
+        },
         ...uniqueImageUrls.map((url) => ({
           message: segment.image(url),
           nickname: e.user_id.toString(),
@@ -148,20 +215,103 @@ export class MZTPlugin extends plugin {
         })),
       ];
 
-      const forwardMsg = await Bot.makeForwardMsg(messages);
-      await e.reply(forwardMsg);
+      // NapCat.Onebot支持
+      if (e.bot?.version?.app_name === "NapCat.Onebot") {
+        const nodes = messages.map((msg) => {
+          const content = [];
+          let msgArray = [];
+
+          if (Array.isArray(msg.message)) {
+            msgArray = msg.message;
+          } else if (typeof msg.message === "string") {
+            msgArray = [msg.message];
+          } else {
+            msgArray = [msg.message];
+          }
+
+          for (const item of msgArray) {
+            if (typeof item === "string") {
+              content.push({
+                type: "text",
+                data: { text: item },
+              });
+            } else if (item?.type === "image") {
+              // 修复这里：安全访问data属性
+              const fileUrl =
+                item.data?.file || item.data?.url || item.file || "";
+              if (fileUrl) {
+                content.push({
+                  type: "image",
+                  data: { file: fileUrl },
+                });
+              } else {
+                logger.error("图片URL解析失败:", item);
+                content.push({
+                  type: "text",
+                  data: { text: "[图片解析失败]" },
+                });
+              }
+            } else {
+              content.push({
+                type: "text",
+                data: { text: "不支持的消息类型" },
+              });
+            }
+          }
+
+          return {
+            type: "node",
+            data: {
+              nickname: msg.nickname,
+              user_id: msg.user_id,
+              content: content,
+            },
+          };
+        });
+
+        const requestBody = {
+          group_id: e.group_id,
+          user_id: e.user_id,
+          message: nodes,
+        };
+
+        try {
+          if (e.isGroup) {
+            await e.bot.sendApi("send_group_forward_msg", requestBody);
+          } else {
+            await e.bot.sendApi("send_private_forward_msg", requestBody);
+          }
+        } catch (error) {
+          logger.error("NapCat转发消息失败:", error);
+          await e.reply("消息发送失败，请稍后再试", true);
+        }
+      } else {
+        try {
+          const forwardMsg = await Bot.makeForwardMsg(messages);
+          await e.reply(forwardMsg);
+        } catch (error) {
+          logger.error("创建转发消息失败:", error);
+          await e.reply("消息发送失败，请稍后再试", true);
+        }
+      }
     } catch (error) {
       logger.error(`操作失败：${error.message}`);
       await e.reply("连接网页失败，请稍后再试", true);
     }
   }
 
-  async fetchAllMZTArticleIds(e) {
-    if (!e.isMaster) {
+  async fetchAllmztArticleIds(e) {
+    if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
-    await e.reply("开始更新写真ID列表，这可能需要几分钟时间...", true);
+
+    if (e) {
+      await e.reply("开始更新写真ID列表，这可能需要几分钟时间...", true);
+    } else {
+      logger.info("[定时任务] 开始自动更新写真ID");
+    }
+
     const baseUrl = "https://kkmzt.com/photo/";
     const allIds = [];
     let browser;
@@ -243,21 +393,37 @@ export class MZTPlugin extends plugin {
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
       logger.info(`文章ID已保存到 ${filePath}`);
 
-      await e.reply(`ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`, true);
+      this.mztIds = uniqueIds;
+
+      if (e) {
+        await e.reply(`ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`, true);
+      } else {
+        logger.info(`[定时任务] 写真ID更新完成，共 ${uniqueIds.length} 个ID`);
+      }
     } catch (error) {
       logger.error("ID收集失败:", error);
-      await e.reply(`ID收集失败: ${error.message}`, true);
+      if (e) {
+        await e.reply(`ID收集失败: ${error.message}`, true);
+      } else {
+        logger.error(`[定时任务] 写真ID更新失败: ${error.message}`);
+      }
     } finally {
       if (browser) await browser.close();
     }
   }
 
   async fetchAllBeautyArticleIds(e) {
-    if (!e.isMaster) {
+    if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
-    await e.reply("开始更新潮拍ID列表，这可能需要几分钟时间...", true);
+
+    if (e) {
+      await e.reply("开始更新潮拍ID列表，这可能需要几分钟时间...", true);
+    } else {
+      logger.info("[定时任务] 开始自动更新潮拍ID");
+    }
+
     const baseUrl = "https://kkmzt.com/beauty/";
     const allIds = [];
     let browser;
@@ -341,32 +507,43 @@ export class MZTPlugin extends plugin {
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
       logger.info(`潮拍ID已保存到 ${filePath}`);
 
-      await e.reply(
-        `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
-        true
-      );
+      if (e) {
+        await e.reply(
+          `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
+          true
+        );
+      } else {
+        logger.info(`[定时任务] 潮拍ID更新完成，共 ${uniqueIds.length} 个ID`);
+      }
     } catch (error) {
       logger.error("潮拍ID收集失败:", error);
-      await e.reply(`潮拍ID收集失败: ${error.message}`, true);
+      if (e) {
+        await e.reply(`潮拍ID收集失败: ${error.message}`, true);
+      } else {
+        logger.error(`[定时任务] 潮拍ID更新失败: ${error.message}`);
+      }
     } finally {
       if (browser) await browser.close();
     }
   }
 
   async fetchAllModelArticleIds(e) {
-    if (!e.isMaster) {
+    if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
-    // 只在开始时发送一次消息
+
     const startTime = Date.now();
-    await e.reply("开始更新模特ID列表，这可能需要较长时间...", true);
+    if (e) {
+      await e.reply("开始更新模特ID列表，这可能需要较长时间...", true);
+    } else {
+      logger.info("[定时任务] 开始自动更新模特ID");
+    }
 
     const baseUrl = "https://kkmzt.com/photo/model/";
     const modelData = {};
     let browser;
 
-    // 进度计数器
     let processedCount = 0;
     let totalModels = 0;
     let totalArticles = 0;
@@ -381,7 +558,6 @@ export class MZTPlugin extends plugin {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
-      // 第一步：获取所有模特信息
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
@@ -403,7 +579,6 @@ export class MZTPlugin extends plugin {
       totalModels = models.length;
       logger.info(`找到 ${totalModels} 个模特`);
 
-      // 第二步：为每个模特收集写真ID
       for (const [index, model] of models.entries()) {
         processedCount = index + 1;
         logger.info(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
@@ -414,7 +589,6 @@ export class MZTPlugin extends plugin {
           timeout: 60000,
         });
 
-        // 获取总页数
         let totalPages = 1;
         const pagination = await page.$("ul.uk-pagination");
         if (pagination) {
@@ -429,7 +603,6 @@ export class MZTPlugin extends plugin {
           }
         }
 
-        // 收集所有页面的ID
         for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
           const pageUrl =
             currentPage === 1 ? model.url : `${model.url}page/${currentPage}/`;
@@ -456,7 +629,6 @@ export class MZTPlugin extends plugin {
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
-        // 保存模特数据
         modelData[model.name] = [...new Set(modelIds)];
         totalArticles += modelData[model.name].length;
         logger.info(
@@ -466,7 +638,6 @@ export class MZTPlugin extends plugin {
         );
       }
 
-      // 保存数据到文件
       const filePath = path.join(
         process.cwd(),
         "data",
@@ -482,27 +653,32 @@ export class MZTPlugin extends plugin {
       fs.writeFileSync(filePath, JSON.stringify(modelData, null, 2), "utf8");
       logger.info(`模特ID已保存到 ${filePath}`);
 
-      // 计算耗时
       const duration = Math.floor((Date.now() - startTime) / 1000);
       const minutes = Math.floor(duration / 60);
       const seconds = duration % 60;
 
-      // 只在最终完成时发送一次结果
-      await e.reply(
+      const resultMsg =
         `模特ID收集完成！\n` +
-          `共获取 ${Object.keys(modelData).length} 位模特信息\n` +
-          `收录写真集总数: ${totalArticles}\n` +
-          `耗时: ${minutes}分${seconds}秒`,
-        true
-      );
+        `共获取 ${Object.keys(modelData).length} 位模特信息\n` +
+        `收录写真集总数: ${totalArticles}\n` +
+        `耗时: ${minutes}分${seconds}秒`;
+
+      if (e) {
+        await e.reply(resultMsg, true);
+      } else {
+        logger.info(`[定时任务] ${resultMsg}`);
+      }
     } catch (error) {
       logger.error("模特ID收集失败:", error);
-      // 出错时发送错误消息
-      await e.reply(
+      const errorMsg =
         `模特ID收集失败: ${error.message}\n` +
-          `已处理 ${processedCount}/${totalModels} 位模特`,
-        true
-      );
+        `已处理 ${processedCount}/${totalModels} 位模特`;
+
+      if (e) {
+        await e.reply(errorMsg, true);
+      } else {
+        logger.error(`[定时任务] ${errorMsg}`);
+      }
     } finally {
       if (browser) await browser.close();
     }
