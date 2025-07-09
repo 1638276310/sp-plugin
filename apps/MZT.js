@@ -2,7 +2,39 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 
+/**
+ * 妹子图图片提取插件
+ * @class mztPlugin
+ * @classdesc 从妹子图网站提取写真、潮拍和模特图片的插件
+ *
+ * 功能包括：
+ * 1. 根据ID获取写真馆图片
+ * 2. 手动/自动更新写真ID列表
+ * 3. 手动/自动更新潮拍ID列表
+ * 4. 手动/自动更新模特ID列表
+ * 5. 随机获取写真图片
+ *
+ * 支持 NapCat.Onebot 的特殊转发格式
+ *
+ * @property {string} name - 插件名称
+ * @property {string} dsc - 插件描述
+ * @property {string} event - 监听事件
+ * @property {number} priority - 优先级
+ * @property {Array} rule - 命令规则
+ * @property {Array} task - 定时任务配置
+ * @property {Array} mztIds - 存储写真ID的数组
+ *
+ * @example
+ * // 使用示例：
+ * // #写真馆12345
+ * // #更新写真ID
+ * // #随机写真
+ */
 export class mztPlugin extends plugin {
+  /**
+   * 插件构造函数
+   * @constructs mztPlugin
+   */
   constructor() {
     super({
       name: "mzt图片提取插件",
@@ -15,15 +47,15 @@ export class mztPlugin extends plugin {
           fnc: "processmztRequest",
         },
         {
-          reg: "^#?更新写真ID$",
+          reg: "^#?更新写真(ID|id)$",
           fnc: "fetchAllmztArticleIds",
         },
         {
-          reg: "^#?更新潮拍ID$",
+          reg: "^#?更新潮拍(ID|id)$",
           fnc: "fetchAllBeautyArticleIds",
         },
         {
-          reg: "^#?更新模特ID$",
+          reg: "^#?更新模特(ID|id)$",
           fnc: "fetchAllModelArticleIds",
         },
         {
@@ -33,31 +65,50 @@ export class mztPlugin extends plugin {
       ],
     });
 
+    /**
+     * 定时任务配置
+     * @type {Array}
+     * @property {string} cron - cron表达式
+     * @property {string} name - 任务名称
+     * @property {Function} fnc - 任务执行函数
+     * @property {boolean} log - 是否记录日志
+     */
     this.task = [
       {
-        cron: "0 45 2 * * ? ",
+        cron: "0 45 2 * * ? ", // 每天02:45执行
         name: "自动更新写真ID",
         fnc: this.fetchAllmztArticleIds.bind(this, null),
         log: true,
       },
       {
-        cron: "0 0 3 * * ? ",
+        cron: "0 0 3 * * ? ", // 每天03:00执行
         name: "自动更新潮拍ID",
         fnc: this.fetchAllBeautyArticleIds.bind(this, null),
         log: true,
       },
       {
-        cron: "0 15 3 * * ? ",
+        cron: "0 15 3 * * ? ", // 每天03:15执行
         name: "自动更新模特ID",
         fnc: this.fetchAllModelArticleIds.bind(this, null),
         log: true,
       },
     ];
 
+    /**
+     * 写真ID列表
+     * @type {Array<number>}
+     */
     this.mztIds = [];
+
+    // 初始化时加载写真ID
     this.loadmztIds();
   }
 
+  /**
+   * 加载写真ID列表
+   * @async
+   * @description 从文件系统加载存储的写真ID列表
+   */
   async loadmztIds() {
     try {
       const filePath = path.join(
@@ -79,6 +130,12 @@ export class mztPlugin extends plugin {
     }
   }
 
+  /**
+   * 处理随机写真请求
+   * @param {Object} e - 消息事件对象
+   * @async
+   * @description 从已加载的写真ID列表中随机选择一个ID进行请求
+   */
   async randommztRequest(e) {
     if (this.mztIds.length === 0) {
       await e.reply("写真ID列表为空，请先使用 #更新写真ID", true);
@@ -93,6 +150,13 @@ export class mztPlugin extends plugin {
     });
   }
 
+  /**
+   * 处理写真请求
+   * @param {Object} e - 消息事件对象
+   * @async
+   * @description 根据提供的ID获取妹子图网站的图片并发送
+   * @throws {Error} 如果无法获取图片或发送消息失败
+   */
   async processmztRequest(e) {
     await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
     const match = e.msg.match(/^#?写真馆(\d+)$/);
@@ -102,21 +166,25 @@ export class mztPlugin extends plugin {
     const baseUrl = `https://kkmzt.com/photo/${articleId}`;
 
     try {
+      // 启动浏览器实例
       const browser = await puppeteer.launch({
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
         headless: "new",
       });
       const page = await browser.newPage();
 
+      // 设置用户代理防止被识别为爬虫
       await page.setUserAgent(
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
+      // 导航到目标页面
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
+      // 获取文章标题和发布时间
       let articleTitle = "未知标题";
       let publishTime = "未知时间";
       try {
@@ -133,9 +201,11 @@ export class mztPlugin extends plugin {
         logger.error("获取发布时间失败:", error);
       }
 
+      // 收集图片URL
       const imageUrls = new Set();
       let imageCount = 0;
 
+      // 初始页面图片收集
       let pageImages = await page.$$eval(
         'img[referrerpolicy="origin"]',
         (imgs) => imgs.map((img) => img.src)
@@ -151,6 +221,7 @@ export class mztPlugin extends plugin {
         logger.info("在初始页面上未找到符合条件的图片");
       }
 
+      // 翻页收集更多图片
       while (imageCount < 20) {
         const nextButton = await page.$(
           'div.uk-position-center-right.uk-overlay.uk-overlay-default.f-swich[action="next"]'
@@ -186,12 +257,13 @@ export class mztPlugin extends plugin {
       const uniqueImageUrls = Array.from(imageUrls);
       logger.info(`总共获取到 ${uniqueImageUrls.length} 张不重复的图片`);
 
+      // 检查是否获取到图片
       if (uniqueImageUrls.length === 0) {
         await e.reply("没有找到任何图片，请稍后再试。", true);
         return;
       }
 
-      // 创建转发消息数组
+      // 构建转发消息
       const messages = [
         {
           message: `📌 文章标题: ${articleTitle}`,
@@ -215,12 +287,13 @@ export class mztPlugin extends plugin {
         })),
       ];
 
-      // NapCat.Onebot支持
+      // 处理NapCat.Onebot的特殊转发格式
       if (e.bot?.version?.app_name === "NapCat.Onebot") {
         const nodes = messages.map((msg) => {
           const content = [];
           let msgArray = [];
 
+          // 处理不同类型的消息内容
           if (Array.isArray(msg.message)) {
             msgArray = msg.message;
           } else if (typeof msg.message === "string") {
@@ -229,6 +302,7 @@ export class mztPlugin extends plugin {
             msgArray = [msg.message];
           }
 
+          // 构建消息节点
           for (const item of msgArray) {
             if (typeof item === "string") {
               content.push({
@@ -236,7 +310,7 @@ export class mztPlugin extends plugin {
                 data: { text: item },
               });
             } else if (item?.type === "image") {
-              // 修复这里：安全访问data属性
+              // 安全获取图片URL
               const fileUrl =
                 item.data?.file || item.data?.url || item.file || "";
               if (fileUrl) {
@@ -269,6 +343,7 @@ export class mztPlugin extends plugin {
           };
         });
 
+        // 构建请求体
         const requestBody = {
           group_id: e.group_id,
           user_id: e.user_id,
@@ -276,6 +351,7 @@ export class mztPlugin extends plugin {
         };
 
         try {
+          // 根据消息类型发送
           if (e.isGroup) {
             await e.bot.sendApi("send_group_forward_msg", requestBody);
           } else {
@@ -286,6 +362,7 @@ export class mztPlugin extends plugin {
           await e.reply("消息发送失败，请稍后再试", true);
         }
       } else {
+        // 标准转发消息处理
         try {
           const forwardMsg = await Bot.makeForwardMsg(messages);
           await e.reply(forwardMsg);
@@ -300,12 +377,20 @@ export class mztPlugin extends plugin {
     }
   }
 
+  /**
+   * 更新写真ID列表
+   * @param {Object|null} e - 消息事件对象（定时任务时为null）
+   * @async
+   * @description 爬取妹子图网站的所有写真ID并保存
+   */
   async fetchAllmztArticleIds(e) {
+    // 权限检查
     if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
 
+    // 通知用户
     if (e) {
       await e.reply("开始更新写真ID列表，这可能需要几分钟时间...", true);
     } else {
@@ -326,11 +411,13 @@ export class mztPlugin extends plugin {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
+      // 导航到目标页面
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
+      // 获取总页数
       let totalPages = 1;
       const pagination = await page.$("ul.uk-pagination");
       if (pagination) {
@@ -346,6 +433,7 @@ export class mztPlugin extends plugin {
       }
       logger.info(`检测到总页数: ${totalPages}`);
 
+      // 遍历所有页面收集ID
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
           currentPage === 1 ? baseUrl : `${baseUrl}page/${currentPage}/`;
@@ -356,6 +444,7 @@ export class mztPlugin extends plugin {
           });
         }
 
+        // 提取当前页面ID
         const pageIds = await page.$$eval("a.uk-inline.u-thumb-v", (links) =>
           links
             .map((link) => {
@@ -370,9 +459,11 @@ export class mztPlugin extends plugin {
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
         );
 
+        // 延迟防止请求过快
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
+      // 去重并保存ID
       const uniqueIds = [...new Set(allIds)];
       const filePath = path.join(
         process.cwd(),
@@ -381,20 +472,20 @@ export class mztPlugin extends plugin {
         "mztids.json"
       );
 
+      // 确保目录存在
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, "[]", "utf8");
-      }
-
+      // 写入文件
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
       logger.info(`文章ID已保存到 ${filePath}`);
 
+      // 更新内存中的ID列表
       this.mztIds = uniqueIds;
 
+      // 完成通知
       if (e) {
         await e.reply(`ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`, true);
       } else {
@@ -412,12 +503,20 @@ export class mztPlugin extends plugin {
     }
   }
 
+  /**
+   * 更新潮拍ID列表
+   * @param {Object|null} e - 消息事件对象（定时任务时为null）
+   * @async
+   * @description 爬取妹子图网站的所有潮拍ID并保存
+   */
   async fetchAllBeautyArticleIds(e) {
+    // 权限检查
     if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
 
+    // 通知用户
     if (e) {
       await e.reply("开始更新潮拍ID列表，这可能需要几分钟时间...", true);
     } else {
@@ -438,11 +537,13 @@ export class mztPlugin extends plugin {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
+      // 导航到目标页面
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
+      // 获取总页数
       let totalPages = 1;
       const pagination = await page.$("ul.uk-pagination");
       if (pagination) {
@@ -458,6 +559,7 @@ export class mztPlugin extends plugin {
       }
       logger.info(`检测到总页数: ${totalPages}`);
 
+      // 遍历所有页面收集ID
       for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
         const pageUrl =
           currentPage === 1 ? baseUrl : `${baseUrl}page/${currentPage}/`;
@@ -468,6 +570,7 @@ export class mztPlugin extends plugin {
           });
         }
 
+        // 提取当前页面ID
         const pageIds = await page.$$eval(
           "div.uk-article h2.uk-margin-remove a",
           (links) =>
@@ -484,9 +587,11 @@ export class mztPlugin extends plugin {
           `第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个潮拍ID`
         );
 
+        // 延迟防止请求过快
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
+      // 去重并保存ID
       const uniqueIds = [...new Set(allIds)];
       const filePath = path.join(
         process.cwd(),
@@ -495,18 +600,17 @@ export class mztPlugin extends plugin {
         "beautyids.json"
       );
 
+      // 确保目录存在
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
-      if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, "[]", "utf8");
-      }
-
+      // 写入文件
       fs.writeFileSync(filePath, JSON.stringify(uniqueIds), "utf8");
       logger.info(`潮拍ID已保存到 ${filePath}`);
 
+      // 完成通知
       if (e) {
         await e.reply(
           `潮拍ID收集完成！共获取 ${uniqueIds.length} 个唯一ID`,
@@ -527,13 +631,23 @@ export class mztPlugin extends plugin {
     }
   }
 
+  /**
+   * 更新模特ID列表
+   * @param {Object|null} e - 消息事件对象（定时任务时为null）
+   * @async
+   * @description 爬取妹子图网站的所有模特ID并保存
+   */
   async fetchAllModelArticleIds(e) {
+    // 权限检查
     if (e && !e.isMaster) {
       e.reply("仅主人可用", true);
       return true;
     }
 
+    // 记录开始时间
     const startTime = Date.now();
+
+    // 通知用户
     if (e) {
       await e.reply("开始更新模特ID列表，这可能需要较长时间...", true);
     } else {
@@ -544,6 +658,7 @@ export class mztPlugin extends plugin {
     const modelData = {};
     let browser;
 
+    // 进度跟踪
     let processedCount = 0;
     let totalModels = 0;
     let totalArticles = 0;
@@ -558,11 +673,13 @@ export class mztPlugin extends plugin {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       );
 
+      // 第一步：获取所有模特信息
       await page.goto(baseUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
       });
 
+      // 提取模特信息
       const models = await page.$$eval("ul.g-list.g-list-model li", (items) =>
         items
           .map((item) => {
@@ -579,16 +696,19 @@ export class mztPlugin extends plugin {
       totalModels = models.length;
       logger.info(`找到 ${totalModels} 个模特`);
 
+      // 第二步：为每个模特收集写真ID
       for (const [index, model] of models.entries()) {
         processedCount = index + 1;
         logger.info(`处理模特 ${processedCount}/${totalModels}: ${model.name}`);
 
         const modelIds = [];
+        // 导航到模特页面
         await page.goto(model.url, {
           waitUntil: "domcontentloaded",
           timeout: 60000,
         });
 
+        // 获取总页数
         let totalPages = 1;
         const pagination = await page.$("ul.uk-pagination");
         if (pagination) {
@@ -603,6 +723,7 @@ export class mztPlugin extends plugin {
           }
         }
 
+        // 遍历模特的所有页面
         for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
           const pageUrl =
             currentPage === 1 ? model.url : `${model.url}page/${currentPage}/`;
@@ -613,6 +734,7 @@ export class mztPlugin extends plugin {
             });
           }
 
+          // 提取当前页面的写真ID
           const pageIds = await page.$$eval("a.uk-inline.u-thumb-v", (links) =>
             links
               .map((link) => {
@@ -626,9 +748,12 @@ export class mztPlugin extends plugin {
           logger.info(
             `  模特 ${model.name} 第 ${currentPage}/${totalPages} 页完成，收集到 ${pageIds.length} 个ID`
           );
+
+          // 延迟防止请求过快
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
+        // 保存模特数据
         modelData[model.name] = [...new Set(modelIds)];
         totalArticles += modelData[model.name].length;
         logger.info(
@@ -638,6 +763,7 @@ export class mztPlugin extends plugin {
         );
       }
 
+      // 保存数据到文件
       const filePath = path.join(
         process.cwd(),
         "data",
@@ -645,24 +771,29 @@ export class mztPlugin extends plugin {
         "mzt.json"
       );
 
+      // 确保目录存在
       const dir = path.dirname(filePath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
 
+      // 写入文件
       fs.writeFileSync(filePath, JSON.stringify(modelData, null, 2), "utf8");
       logger.info(`模特ID已保存到 ${filePath}`);
 
+      // 计算耗时
       const duration = Math.floor((Date.now() - startTime) / 1000);
       const minutes = Math.floor(duration / 60);
       const seconds = duration % 60;
 
+      // 构建结果消息
       const resultMsg =
         `模特ID收集完成！\n` +
         `共获取 ${Object.keys(modelData).length} 位模特信息\n` +
         `收录写真集总数: ${totalArticles}\n` +
         `耗时: ${minutes}分${seconds}秒`;
 
+      // 发送结果
       if (e) {
         await e.reply(resultMsg, true);
       } else {
@@ -670,10 +801,12 @@ export class mztPlugin extends plugin {
       }
     } catch (error) {
       logger.error("模特ID收集失败:", error);
+      // 构建错误消息
       const errorMsg =
         `模特ID收集失败: ${error.message}\n` +
         `已处理 ${processedCount}/${totalModels} 位模特`;
 
+      // 发送错误消息
       if (e) {
         await e.reply(errorMsg, true);
       } else {
