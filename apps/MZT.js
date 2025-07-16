@@ -175,7 +175,7 @@ export class mztPlugin extends plugin {
 
       // 设置用户代理防止被识别为爬虫
       await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
       );
 
       // 导航到目标页面
