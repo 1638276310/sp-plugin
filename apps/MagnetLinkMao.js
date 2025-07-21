@@ -12,27 +12,11 @@ export class MagnetLink extends plugin {
           reg: "^#?磁力猫(.*)$",
           fnc: "processMagnetLink",
         },
-        {
-          reg: "^#?磁力帮助$",
-          fnc: "magnetHelp",
-        },
       ],
     });
   }
 
-  async magnetHelp(e) {
-    // if (!e.isGroup) return;
-    let helpText =
-      "#磁力猫支持搜索格式  #磁力猫[搜索内容] [全部/影视/音乐/图像/文档/压缩包/安装包/其他] [相关度/文件大小/添加时间/热度/最近下载] [结果数量]\n";
-    helpText +=
-      "如#磁力猫ipx  #磁力猫ipx 全部 热度 20  #磁力猫ipx 影视 添加时间\n\n";
-    helpText += "注意：搜索结果可能包含成人内容，请谨慎使用";
-    await this.reply(helpText);
-  }
-
   async processMagnetLink(e) {
-    // if (!e.isGroup) return;
-    // 指定撤回消息
     await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
     let match = e.msg.match(
       /^#?磁力猫\s*(\S+)(\s+(\S+))?(\s+(\S+))?(\s+(\d+))?$/
@@ -47,10 +31,10 @@ export class MagnetLink extends plugin {
     const resultCount = parseInt(match[7]) || 10;
 
     const urls = [
-      `https://nnmulhxs.8800481.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://hjfxpucj.8800483.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://lbpqjxhu.8800484.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://bypfsmlj.8800485.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://lcauttte.8800481.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://bgqinxus.8800483.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://zvzmnclb.8800486.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://ginkvync.8800487.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
     ];
 
     const browser = await puppeteer.launch({
@@ -121,8 +105,58 @@ export class MagnetLink extends plugin {
         }
 
         if (results.length > 0) {
-          const forwardMsg = await Bot.makeForwardMsg(results);
-          await this.reply(forwardMsg);
+          // 添加NapCat.Onebot自定义信息支持
+          if (e.bot?.version?.app_name === "NapCat.Onebot") {
+            try {
+              // 构建节点数组
+              const nodes = results.map((result) => {
+                return {
+                  type: "node",
+                  data: {
+                    nickname: result.nickname,
+                    user_id: result.user_id,
+                    content: [
+                      {
+                        type: "text",
+                        data: { text: result.message },
+                      },
+                    ],
+                  },
+                };
+              });
+
+              // 构建请求体 - 添加固定信息
+              const requestBody = {
+                group_id: e.group_id,
+                user_id: e.user_id,
+                message: nodes,
+                news: [{ text: "QQ/VX：1638276310" }],
+                prompt: "QQ/VX：1638276310",
+                summary: `QQ/VX：1638276310`,
+                source: "QQ/VX：1638276310",
+              };
+
+              // 根据消息类型发送
+              if (e.isGroup) {
+                await e.bot.sendApi("send_group_forward_msg", requestBody);
+              } else {
+                await e.bot.sendApi("send_private_forward_msg", requestBody);
+              }
+            } catch (error) {
+              logger.error("NapCat转发消息失败:", error);
+              await this.reply("消息发送失败，请稍后再试", true);
+            }
+          } else {
+            // 标准转发消息处理
+            try {
+              const forwardMsg = await Bot.makeForwardMsg(results);
+              await this.reply(forwardMsg);
+            } catch (error) {
+              logger.error("创建转发消息失败:", error);
+              await this.reply("消息发送失败，请稍后再试", true);
+            }
+          }
+          
           await browser.close();
           return;
         } else {
