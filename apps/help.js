@@ -18,6 +18,7 @@ export class sphelp extends plugin {
       await this.reply([segment.image("./plugins/sp-plugin/config/help.png")]);
     } catch (error) {
       logger.error("发送图片消息时出错:", error);
+      await e.reply("发送涩批帮助时出错");
     }
   }
 }
