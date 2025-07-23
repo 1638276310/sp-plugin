@@ -75,19 +75,19 @@ export class mztPlugin extends plugin {
      */
     this.task = [
       {
-        cron: "0 45 2 * * ? ", // 每天02:45执行
+        cron: "0 0 5 1/7 * ? ", // 每天02:45执行
         name: "自动更新写真ID",
         fnc: this.fetchAllmztArticleIds.bind(this, null),
         log: true,
       },
       {
-        cron: "0 0 3 * * ? ", // 每天03:00执行
+        cron: "0 0 5 3/7 * ? ", // 每天03:00执行
         name: "自动更新潮拍ID",
         fnc: this.fetchAllBeautyArticleIds.bind(this, null),
         log: true,
       },
       {
-        cron: "0 15 3 * * ? ", // 每天03:15执行
+        cron: "0 0 5 5/7 * ? ", // 每天03:15执行
         name: "自动更新模特ID",
         fnc: this.fetchAllModelArticleIds.bind(this, null),
         log: true,
