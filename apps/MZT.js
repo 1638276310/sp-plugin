@@ -46,22 +46,22 @@ export class mztPlugin extends plugin {
           reg: "^#?写真馆(\\d+)$",
           fnc: "processmztRequest",
         },
-        {
-          reg: "^#?更新写真(ID|id)$",
-          fnc: "fetchAllmztArticleIds",
-        },
-        {
-          reg: "^#?更新潮拍(ID|id)$",
-          fnc: "fetchAllBeautyArticleIds",
-        },
-        {
-          reg: "^#?更新模特(ID|id)$",
-          fnc: "fetchAllModelArticleIds",
-        },
-        {
-          reg: "^#?随机写真$",
-          fnc: "randommztRequest",
-        },
+        // {
+        //   reg: "^#?更新写真(ID|id)$",
+        //   fnc: "fetchAllmztArticleIds",
+        // },
+        // {
+        //   reg: "^#?更新潮拍(ID|id)$",
+        //   fnc: "fetchAllBeautyArticleIds",
+        // },
+        // {
+        //   reg: "^#?更新模特(ID|id)$",
+        //   fnc: "fetchAllModelArticleIds",
+        // },
+        // {
+        //   reg: "^#?随机写真$",
+        //   fnc: "randommztRequest",
+        // },
       ],
     });
 
@@ -73,26 +73,26 @@ export class mztPlugin extends plugin {
      * @property {Function} fnc - 任务执行函数
      * @property {boolean} log - 是否记录日志
      */
-    this.task = [
-      {
-        cron: "0 0 5 1/7 * ? ", // 每天02:45执行
-        name: "自动更新写真ID",
-        fnc: this.fetchAllmztArticleIds.bind(this, null),
-        log: true,
-      },
-      {
-        cron: "0 0 5 3/7 * ? ", // 每天03:00执行
-        name: "自动更新潮拍ID",
-        fnc: this.fetchAllBeautyArticleIds.bind(this, null),
-        log: true,
-      },
-      {
-        cron: "0 0 5 5/7 * ? ", // 每天03:15执行
-        name: "自动更新模特ID",
-        fnc: this.fetchAllModelArticleIds.bind(this, null),
-        log: true,
-      },
-    ];
+    // this.task = [
+    //   {
+    //     cron: "0 0 5 1/7 * ? ", // 每天02:45执行
+    //     name: "自动更新写真ID",
+    //     fnc: this.fetchAllmztArticleIds.bind(this, null),
+    //     log: true,
+    //   },
+    //   {
+    //     cron: "0 0 5 3/7 * ? ", // 每天03:00执行
+    //     name: "自动更新潮拍ID",
+    //     fnc: this.fetchAllBeautyArticleIds.bind(this, null),
+    //     log: true,
+    //   },
+    //   {
+    //     cron: "0 0 5 5/7 * ? ", // 每天03:15执行
+    //     name: "自动更新模特ID",
+    //     fnc: this.fetchAllModelArticleIds.bind(this, null),
+    //     log: true,
+    //   },
+    // ];
 
     /**
      * 写真ID列表
