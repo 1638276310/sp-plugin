@@ -46,22 +46,22 @@ export class mztPlugin extends plugin {
           reg: "^#?写真馆(\\d+)$",
           fnc: "processmztRequest",
         },
-        // {
-        //   reg: "^#?更新写真(ID|id)$",
-        //   fnc: "fetchAllmztArticleIds",
-        // },
-        // {
-        //   reg: "^#?更新潮拍(ID|id)$",
-        //   fnc: "fetchAllBeautyArticleIds",
-        // },
-        // {
-        //   reg: "^#?更新模特(ID|id)$",
-        //   fnc: "fetchAllModelArticleIds",
-        // },
-        // {
-        //   reg: "^#?随机写真$",
-        //   fnc: "randommztRequest",
-        // },
+        {
+          reg: "^#?更新写真(ID|id)$",
+          fnc: "fetchAllmztArticleIds",
+        },
+        {
+          reg: "^#?更新潮拍(ID|id)$",
+          fnc: "fetchAllBeautyArticleIds",
+        },
+        {
+          reg: "^#?更新模特(ID|id)$",
+          fnc: "fetchAllModelArticleIds",
+        },
+        {
+          reg: "^#?随机写真$",
+          fnc: "randommztRequest",
+        },
       ],
     });
 
