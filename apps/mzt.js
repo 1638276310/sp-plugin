@@ -423,9 +423,11 @@ export class mztPlugin extends plugin {
 
       // 获取总页数
       let totalPages = 1;
-      const pagination = await page.$("ul.uk-pagination");
+      const pagination = await page.$(
+        "nav.uk-container.uk-padding-small.m-pagination ul.uk-pagination"
+      );
       if (pagination) {
-        const lastPageElement = await pagination.$("li:nth-last-child(2)");
+        const lastPageElement = await pagination.$("li:nth-last-child(2) a");
         if (lastPageElement) {
           const lastPageText = await lastPageElement.evaluate((el) =>
             el.textContent?.trim()
@@ -549,9 +551,11 @@ export class mztPlugin extends plugin {
 
       // 获取总页数
       let totalPages = 1;
-      const pagination = await page.$("ul.uk-pagination");
+      const pagination = await page.$(
+        "nav.uk-container.uk-padding-small.m-pagination ul.uk-pagination"
+      );
       if (pagination) {
-        const lastPageElement = await pagination.$("li:nth-last-child(2)");
+        const lastPageElement = await pagination.$("li:nth-last-child(2) a");
         if (lastPageElement) {
           const lastPageText = await lastPageElement.evaluate((el) =>
             el.textContent?.trim()
@@ -714,9 +718,11 @@ export class mztPlugin extends plugin {
 
         // 获取总页数
         let totalPages = 1;
-        const pagination = await page.$("ul.uk-pagination");
+        const pagination = await page.$(
+          "nav.uk-container.uk-padding-small.m-pagination ul.uk-pagination"
+        );
         if (pagination) {
-          const lastPageElement = await pagination.$("li:nth-last-child(2)");
+          const lastPageElement = await pagination.$("li:nth-last-child(2) a");
           if (lastPageElement) {
             const lastPageText = await lastPageElement.evaluate((el) =>
               el.textContent?.trim()
