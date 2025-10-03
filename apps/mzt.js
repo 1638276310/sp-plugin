@@ -167,7 +167,7 @@ export class mztPlugin extends plugin {
       const page = await browser.newPage();
 
       // 设置用户代理防止被识别为爬虫
-      await page.setUserAgent(getRandomUserAgent());
+      await page.setUserAgent(this.getRandomUserAgent());
 
       // 导航到目标页面
       await page.goto(baseUrl, {
@@ -405,7 +405,7 @@ export class mztPlugin extends plugin {
         headless: "new",
       });
       const page = await browser.newPage();
-      await page.setUserAgent(getRandomUserAgent());
+      await page.setUserAgent(this.getRandomUserAgent());
 
       while (!stop) {
         const url = pageNo === 1 ? baseUrl : `${baseUrl}page/${pageNo}/`;
