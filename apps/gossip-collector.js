@@ -84,7 +84,7 @@ export class VideoSearch extends plugin {
      * @property {boolean} log - 是否记录日志
      */
     this.task = {
-      cron: "0 0 0/1 * * ? ", // 每个小时执行
+      cron: "0 0 18 * * ? ", // 每天18：00执行
       name: "自动更新吃瓜ID",
       fnc: this.updateArticleIds.bind(this, null), // 绑定空事件对象
       log: true,
