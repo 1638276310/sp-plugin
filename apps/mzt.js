@@ -137,6 +137,8 @@ export class mztPlugin extends plugin {
 
     const randomId =
       this.mztIds[Math.floor(Math.random() * this.mztIds.length)];
+    
+    await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, { at: true, recallMsg: 60 });
     await this.processmztRequest({
       ...e,
       msg: `#写真馆${randomId}`,
