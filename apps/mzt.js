@@ -151,7 +151,8 @@ export class mztPlugin extends plugin {
    * @throws {Error} 如果无法获取图片或发送消息失败
    */
   async processmztRequest(e) {
-    await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+    // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+    await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, { at: true, recallMsg: 60 });
     const match = e.msg.match(/^#?写真馆(\d+)$/);
     if (!match) return;
 
