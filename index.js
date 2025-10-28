@@ -7,6 +7,9 @@ const files = fs
 let ret = [];
 
 logger.info(`--------kk need p-------------`);
+logger.info(`--------kk need p-------------`);
+logger.info(`--------kk need p-------------`);
+
 
 files.forEach((file) => {
   ret.push(import(`./apps/${file}`));
