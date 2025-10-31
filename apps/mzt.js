@@ -137,12 +137,18 @@ export class mztPlugin extends plugin {
 
     const randomId =
       this.mztIds[Math.floor(Math.random() * this.mztIds.length)];
-    
-    await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, { at: true, recallMsg: 60 });
-    await this.processmztRequest({
-      ...e,
-      msg: `#写真馆${randomId}`,
+
+    await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, {
+      at: true,
+      recallMsg: 60,
     });
+    await this.processmztRequest(
+      {
+        ...e,
+        msg: `#写真馆${randomId}`,
+      },
+      true
+    );
   }
 
   /**
@@ -152,9 +158,10 @@ export class mztPlugin extends plugin {
    * @description 根据提供的ID获取妹子图网站的图片并发送
    * @throws {Error} 如果无法获取图片或发送消息失败
    */
-  async processmztRequest(e) {
-    await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-    // await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, { at: true, recallMsg: 60 });
+  async processmztRequest(e, skipTip = false) {
+    if (!skipTip) {
+      await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
+    }
     const match = e.msg.match(/^#?写真馆(\d+)$/);
     if (!match) return;
 
