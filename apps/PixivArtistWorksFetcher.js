@@ -94,8 +94,8 @@ export class PixivArtistWorksFetcher extends plugin {
     const num = parseInt(match[1]);
     const artistId = match[2];
 
-    if (num > 30) {
-      await e.reply("一次最多看30张哦");
+    if (num > 20) {
+      await e.reply("一次最多看20张哦");
       return;
     }
 
