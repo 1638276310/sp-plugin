@@ -4,7 +4,6 @@
  * @author AI-Assistant
  */
 
-import plugin from "../../lib/plugins/plugin.js";
 import { readIds } from "../lib/gossip-utils.js";
 import { fetchVideoById } from "../lib/gossip-utils.js";
 
