@@ -284,13 +284,15 @@ export class VideoSearch extends plugin {
    * @param {Object} e - 消息事件对象
    * @description 根据ID从视频站抓取视频和文章内容
    */
-  async processVideoSearch(e) {
+  async processVideoSearch(e, skipTip = false) {
     await this.loadingPromise;
 
     const match = e.msg.match(/^#?吃瓜\s*(\d+)$/);
     if (!match) return;
 
-    await e.reply("正在解析中......", false, { at: true });
+    if (!skipTip) {
+      await e.reply("正在解析中......", false, { at: true });
+    }
     const videoId = match[1];
 
     // 检查ID是否在排除列表中
@@ -760,10 +762,10 @@ export class VideoSearch extends plugin {
       at: true,
     });
 
-    await this.processVideoSearch({
-      ...e,
-      msg: `#吃瓜 ${randomVideoId}`,
-    });
+    await this.processVideoSearch(
+      { ...e, msg: `#吃瓜 ${randomVideoId}` },
+      true // 跳过“正在解析中...”
+    );
   }
 
   /**
