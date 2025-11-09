@@ -4,7 +4,6 @@
  * @author AI-Assistant
  */
 
-import plugin from '../../../lib/plugins/plugin.js'
 import { refreshArticleIds } from '../lib/gossip-utils.js'
 
 export class GossipUpdate extends plugin {
