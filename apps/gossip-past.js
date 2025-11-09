@@ -5,8 +5,8 @@
  */
 
 import plugin from '../../../lib/plugins/plugin.js'
-import { fetchPastArticles } from './lib/gossip-utils.js'
-import { readIds } from './lib/gossip-utils.js'
+import { fetchPastArticles } from '../lib/gossip-utils.js'
+import { readIds } from '../lib/gossip-utils.js'
 
 export class GossipPast extends plugin {
   constructor() {

@@ -5,7 +5,7 @@
  */
 
 import plugin from '../../../lib/plugins/plugin.js'
-import { fetchVideoById } from './lib/gossip-utils.js'
+import { fetchVideoById } from '../lib/gossip-utils.js'
 
 export class GossipVideo extends plugin {
   constructor() {

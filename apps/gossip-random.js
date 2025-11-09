@@ -5,8 +5,8 @@
  */
 
 import plugin from '../../../lib/plugins/plugin.js'
-import { readIds } from './lib/gossip-utils.js'
-import { fetchVideoById } from './lib/gossip-utils.js'
+import { readIds } from '../lib/gossip-utils.js'
+import { fetchVideoById } from '../lib/gossip-utils.js'
 
 export class GossipRandom extends plugin {
   constructor() {
