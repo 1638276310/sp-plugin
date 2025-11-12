@@ -140,7 +140,7 @@ export class mztPlugin extends plugin {
 
     await e.reply(`写真ID：${randomId} 正在搜索，请稍等...`, false, {
       at: true,
-      recallMsg: 60,
+      
     });
     await this.processmztRequest(
       {
