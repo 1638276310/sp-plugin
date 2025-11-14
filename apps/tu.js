@@ -16,11 +16,11 @@ export class CosImageFetcher extends plugin {
             priority: 60,
             rule: [
                 {
-                    reg: '^#?二图$',
+                    reg: '^#?2图$',
                     fnc: 'process2Images'
                 },
                 {
-                    reg: '^#?三图$',
+                    reg: '^#?3图$',
                     fnc: 'process3Images'
                 }
             ]
@@ -28,7 +28,7 @@ export class CosImageFetcher extends plugin {
     }
 
     getRecallConfig() {
-        const path = '../config/recall.yaml';
+        const path = './plugins/sp-plugin/config/recall.yaml';
         const fileContents = fs.readFileSync(path, 'utf8');
         return YAML.parse(fileContents);
     }
@@ -48,12 +48,12 @@ export class CosImageFetcher extends plugin {
     }
 
     async modifyImageWithPython(imageBuffer, imageName) {
-        const tempImagePath = `../temp/temp_${imageName}.jpg`;
+        const tempImagePath = `./plugins/sp-plugin/temp/temp_${imageName}.jpg`;
 
         fs.writeFileSync(tempImagePath, imageBuffer);
 
         try {
-            const { stdout } = await execFileAsync(pythonCommand, ['../modify_image.py', tempImagePath]);
+            const { stdout } = await execFileAsync(pythonCommand, ['./plugins/sp-plugin/modify_image.py', tempImagePath]);
             const modifiedImagePath = stdout.trim();
             const modifiedImageBuffer = fs.readFileSync(modifiedImagePath);
 
