@@ -10,7 +10,7 @@ export class GossipIds extends plugin {
   constructor() {
     super({
       name: "吃瓜可用ID",
-      dsc: "分批返回当前可用吃瓜文章 ID（NapCat 多层转发）",
+      dsc: "分批返回当前可用吃瓜文章 ID（NapCat 兼容）",
       event: "message",
       rule: [
         {
@@ -30,39 +30,28 @@ export class GossipIds extends plugin {
     }
 
     const batch = 50;               // 每批 ID 数量
-    const bigNodes = [];            // 最外层转发节点
+    const nodes = [];               // 单层转发节点
 
     for (let i = 0; i < okIds.length; i += batch) {
       const chunk = okIds.slice(i, i + batch);
-
-      /* 先把这批 ID 做成「小转发」 */
-      const smallNodes = chunk.map(id => ({
+      /* 拼成一段普通文本 */
+      const text = [`第 ${Math.floor(i / batch) + 1} 批（${chunk.length} 个）`]
+        .concat(chunk)
+        .join("\n");
+      nodes.push({
         type: "node",
         data: {
           user_id: this.e.user_id,
           nickname: this.e.sender.nickname,
-          content: [{ type: "text", data: { text: `吃瓜可用 ID：${id}` } }]
-        }
-      }));
-
-      /* 再把小转发当成一条消息塞进大转发 */
-      bigNodes.push({
-        type: "node",
-        data: {
-          user_id: this.e.user_id,
-          nickname: this.e.sender.nickname,
-          content: [
-            { type: "text", data: { text: `第 ${Math.floor(i / batch) + 1} 批（共 ${chunk.length} 个）` } },
-            ...smallNodes
-          ]
+          content: [{ type: "text", data: { text } }]
         }
       });
     }
 
-    /* NapCat 大转发请求体 */
+    /* NapCat 请求体 */
     const body = {
       [this.e.isGroup ? "group_id" : "user_id"]: this.e.isGroup ? this.e.group_id : this.e.user_id,
-      message: bigNodes,
+      message: nodes,
       news: [{ text: "吃瓜可用 ID 列表" }],
       prompt: "吃瓜可用 ID 列表",
       summary: `共 ${okIds.length} 个可用 ID`,
