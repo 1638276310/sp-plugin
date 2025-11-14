@@ -23,43 +23,47 @@ export class GossipIds extends plugin {
 
   async idsFound() {
     const { articleIds, excludedIds } = await readIds();
-    const okIds = articleIds.filter(id => !excludedIds.includes(id));
+    const okIds = articleIds.filter((id) => !excludedIds.includes(id));
 
     if (!okIds.length) {
       return this.e.reply("当前没有可用的吃瓜 ID", false, { at: true });
     }
 
-    const batch = 50;               // 每批 ID 数量
-    const nodes = [];               // 单层转发节点
+    const batch = 50; // 每批 ID 数量
+    const nodes = []; // 单层转发节点
 
     for (let i = 0; i < okIds.length; i += batch) {
       const chunk = okIds.slice(i, i + batch);
-      /* 拼成一段普通文本 */
       const text = [`第 ${Math.floor(i / batch) + 1} 批（${chunk.length} 个）`]
         .concat(chunk)
         .join("\n");
+
       nodes.push({
         type: "node",
         data: {
           user_id: this.e.user_id,
           nickname: this.e.sender.nickname,
-          content: [{ type: "text", data: { text } }]
-        }
+          content: [{ type: "text", data: { text } }],
+        },
       });
     }
 
     /* NapCat 请求体 */
     const body = {
-      [this.e.isGroup ? "group_id" : "user_id"]: this.e.isGroup ? this.e.group_id : this.e.user_id,
+      [this.e.isGroup ? "group_id" : "user_id"]: this.e.isGroup
+        ? this.e.group_id
+        : this.e.user_id,
       message: nodes,
       news: [{ text: "吃瓜可用 ID 列表" }],
       prompt: "吃瓜可用 ID 列表",
       summary: `共 ${okIds.length} 个可用 ID`,
-      source: "吃瓜插件"
+      source: "吃瓜插件",
     };
 
     try {
-      const api = this.e.isGroup ? "send_group_forward_msg" : "send_private_forward_msg";
+      const api = this.e.isGroup
+        ? "send_group_forward_msg"
+        : "send_private_forward_msg";
       await this.e.bot.sendApi(api, body);
     } catch (err) {
       logger.error("[gossip-ids] 发送转发消息失败：", err);
