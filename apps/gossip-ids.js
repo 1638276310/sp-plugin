@@ -29,8 +29,8 @@ export class GossipIds extends plugin {
       return this.e.reply("当前没有可用的吃瓜 ID", false, { at: true });
     }
 
-    const batch = 2000; // 每批 ID 数量
-    const maxBatches = 20; // 最多 10 批
+    const batch = 200; // 每批 ID 数量
+    const maxBatches = 200; // 最多 10 批
     const total = Math.min(okIds.length, batch * maxBatches);
     const nodes = [];
 
@@ -73,9 +73,9 @@ export class GossipIds extends plugin {
       const shortText = `当前共有 ${
         okIds.length
       } 个可用吃瓜 ID，因消息过长，仅展示前 ${Math.min(
-        100,
+        2000,
         okIds.length
-      )} 个：\n${okIds.slice(0, 100).join("\n")}`;
+      )} 个：\n${okIds.slice(0, 2000).join("\n")}`;
       await this.e.reply(shortText, false, { at: true });
     }
   }
