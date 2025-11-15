@@ -1,7 +1,7 @@
 /**
  * 插件名称：吃瓜可用ID
  * 触发正则：^#?可用吃瓜ID$
- * @author AI-Assistant
+ * @author 寂寞沙洲冷 QV：1638276310
  */
 
 import { readIds } from "../lib/gossip-utils.js";
