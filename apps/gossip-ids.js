@@ -29,8 +29,8 @@ export class GossipIds extends plugin {
       return this.e.reply("当前没有可用的吃瓜 ID", false, { at: true });
     }
 
-    const batch = 20; // 每批 ID 数量
-    const maxBatches = 10; // 最多 10 批
+    const batch = 2000; // 每批 ID 数量
+    const maxBatches = 20; // 最多 10 批
     const total = Math.min(okIds.length, batch * maxBatches);
     const nodes = [];
 
