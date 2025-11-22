@@ -3,7 +3,6 @@
  * 触发正则：^#?可用吃瓜ID$
  * @author 寂寞沙洲冷 QV：1638276310
  */
-
 import { readIds } from "../lib/gossip-utils.js";
 
 export class GossipIds extends plugin {
@@ -12,34 +11,22 @@ export class GossipIds extends plugin {
       name: "吃瓜可用ID",
       dsc: "分批返回当前可用吃瓜文章 ID（NapCat 兼容）",
       event: "message",
-      rule: [
-        {
-          reg: "^#?可用吃瓜ID$",
-          fnc: "idsFound",
-        },
-      ],
+      rule: [{ reg: "^#?可用吃瓜ID$", fnc: "idsFound" }],
     });
   }
-
   async idsFound() {
-    const { articleIds, excludedIds } = await readIds();
-    const okIds = articleIds.filter((id) => !excludedIds.includes(id));
-
-    if (!okIds.length) {
+    const ids = await readIds();
+    if (!ids.length)
       return this.e.reply("当前没有可用的吃瓜 ID", false, { at: true });
-    }
-
-    const batch = 200; // 每批 ID 数量
-    const maxBatches = 200; // 最多 10 批
-    const total = Math.min(okIds.length, batch * maxBatches);
+    const batch = 200,
+      maxBatches = 10,
+      total = Math.min(ids.length, batch * maxBatches);
     const nodes = [];
-
     for (let i = 0; i < total; i += batch) {
-      const chunk = okIds.slice(i, i + batch);
+      const chunk = ids.slice(i, i + batch);
       const text = [`第 ${Math.floor(i / batch) + 1} 批（${chunk.length} 个）`]
         .concat(chunk)
         .join("\n");
-
       nodes.push({
         type: "node",
         data: {
@@ -49,7 +36,6 @@ export class GossipIds extends plugin {
         },
       });
     }
-
     const body = {
       [this.e.isGroup ? "group_id" : "user_id"]: this.e.isGroup
         ? this.e.group_id
@@ -57,26 +43,23 @@ export class GossipIds extends plugin {
       message: nodes,
       news: [{ text: "吃瓜可用 ID 列表" }],
       prompt: "吃瓜可用 ID 列表",
-      summary: `共 ${okIds.length} 个可用 ID，展示前 ${total} 个`,
+      summary: `共 ${ids.length} 个可用 ID，展示前 ${total} 个`,
       source: "吃瓜插件",
     };
-
     try {
-      const api = this.e.isGroup
-        ? "send_group_forward_msg"
-        : "send_private_forward_msg";
-      await this.e.bot.sendApi(api, body);
+      await this.e.bot.sendApi(
+        this.e.isGroup ? "send_group_forward_msg" : "send_private_forward_msg",
+        body
+      );
     } catch (err) {
       logger.error("[gossip-ids] 发送转发消息失败：", err);
-
-      // 降级为普通文本消息
-      const shortText = `当前共有 ${
-        okIds.length
+      const short = `当前共有 ${
+        ids.length
       } 个可用吃瓜 ID，因消息过长，仅展示前 ${Math.min(
         2000,
-        okIds.length
-      )} 个：\n${okIds.slice(0, 2000).join("\n")}`;
-      await this.e.reply(shortText, false, { at: true });
+        ids.length
+      )} 个：\n${ids.slice(0, 2000).join("\n")}`;
+      await this.e.reply(short, false, { at: true });
     }
   }
 }

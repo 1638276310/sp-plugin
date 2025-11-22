@@ -1,38 +1,29 @@
 /**
- * 插件名称：吃瓜更新
- * 触发正则：^(#)?更新吃瓜(ID|id)$
- * @author AI-Assistant
+ * 吃瓜自动更新（仅定时）
+ * cron：0 0 18 * * ?   每天 18:00 执行
+ * @author 寂寞沙洲冷 QV：1638276310
  */
-
 import { refreshArticleIds } from "../lib/gossip-utils.js";
 
-export class GossipUpdate extends plugin {
+export class GossipAutoUpdate extends plugin {
   constructor() {
     super({
-      name: "吃瓜更新",
-      dsc: "重新生成文章 ID 列表",
+      name: "吃瓜自动更新",
+      dsc: "每天 18:00 自动生成最新文章 ID 列表",
       event: "message",
-      rule: [
-        {
-          reg: "^(#)?更新吃瓜(ID|id)$",
-          fnc: "update",
-        },
-      ],
+      rule: [], // ← 手动规则全删
     });
+    this.task = {
+      cron: "0 0 18 * * ?",
+      name: "吃瓜ID自动刷新",
+      fnc: () => this.doRefresh(),
+      log: true,
+    };
   }
 
-  /**
-   * 主入口：校验权限 -> 刷新 -> 回复结果
-   */
-  async update() {
-    if (!this.e.isMaster) return this.e.reply("仅主人可用", true);
-
-    await this.e.reply("正在更新文章 ID 列表...", false, { at: true });
+  async doRefresh() {
+    logger.mark("[吃瓜定时] 开始自动刷新文章ID");
     const ok = await refreshArticleIds();
-    await this.e.reply(
-      ok ? "文章 ID 更新成功！" : "更新失败，请稍后重试",
-      false,
-      { at: true }
-    );
+    logger.mark(`[吃瓜定时] 刷新完成，${ok ? "成功" : "失败"}`);
   }
 }

@@ -1,9 +1,8 @@
 /**
  * 插件名称：随机吃瓜
  * 触发正则：^#?随机吃瓜$
- * @author AI-Assistant
+ * @author 寂寞沙洲冷 QV：1638276310
  */
-
 import { readIds } from "../lib/gossip-utils.js";
 import { fetchVideoById } from "../lib/gossip-utils.js";
 
@@ -13,26 +12,16 @@ export class GossipRandom extends plugin {
       name: "随机吃瓜",
       dsc: "随机挑一篇未失效的文章",
       event: "message",
-      rule: [
-        {
-          reg: "^#?随机吃瓜$",
-          fnc: "random",
-        },
-      ],
+      rule: [{ reg: "^#?随机吃瓜$", fnc: "random" }],
     });
   }
-
   async random() {
-    const { articleIds, excludedIds } = await readIds();
-    const ok = articleIds.filter((id) => !excludedIds.includes(id));
-    if (!ok.length) return this.e.reply("暂无可用视频", false, { at: true });
-
-    const id = ok[Math.floor(Math.random() * ok.length)];
+    const ids = await readIds();
+    if (!ids.length) return this.e.reply("暂无可用视频", false, { at: true });
+    const id = ids[Math.floor(Math.random() * ids.length)];
     await this.e.reply(`随机选中 ${id}，正在获取...`, false, { at: true });
-
     const data = await fetchVideoById(id);
     if (!data) return this.e.reply("获取失败", false, { at: true });
-
     const nodes = [
       {
         user_id: this.e.user_id,
@@ -70,36 +59,18 @@ export class GossipRandom extends plugin {
         })
       );
     }
-
-    /* ===== NapCat 原样开始 ===== */
     if (this.e.bot?.version?.app_name === "NapCat.Onebot") {
-      const ncNodes = [];
-      for (const node of nodes) {
-        const messages = Array.isArray(node.message)
-          ? node.message
-          : [node.message];
-        const content = [];
-        for (const item of messages) {
-          if (typeof item === "string") {
-            content.push({ type: "text", data: { text: item } });
-          } else if (item?.type === "image") {
-            content.push({ type: "image", data: { file: item.data.file } });
-          } else if (item?.type === "video") {
-            content.push({ type: "video", data: { file: item.data.file } });
-          } else {
-            content.push({ type: "text", data: { text: "不支持的消息类型" } });
-          }
-        }
-        ncNodes.push({
-          type: "node",
-          data: {
-            nickname: this.e.sender.nickname,
-            user_id: this.e.user_id,
-            content: content,
-          },
-        });
-      }
-      const requestBody = {
+      const ncNodes = nodes.map((node) => ({
+        type: "node",
+        data: {
+          nickname: this.e.sender.nickname,
+          user_id: this.e.user_id,
+          content: Array.isArray(node.message)
+            ? node.message.map((m) => ({ type: "text", data: { text: m } }))
+            : [{ type: "text", data: { text: node.message } }],
+        },
+      }));
+      const body = {
         group_id: this.e.group_id,
         user_id: this.e.user_id,
         message: ncNodes,
@@ -108,15 +79,11 @@ export class GossipRandom extends plugin {
         summary: `QQ/VX：1638276310`,
         source: "QQ/VX：1638276310",
       };
-      if (this.e.isGroup) {
-        await this.e.bot.sendApi("send_group_forward_msg", requestBody);
-      } else {
-        await this.e.bot.sendApi("send_private_forward_msg", requestBody);
-      }
-      return;
+      return await this.e.bot.sendApi(
+        this.e.isGroup ? "send_group_forward_msg" : "send_private_forward_msg",
+        body
+      );
     }
-    /* ===== NapCat 原样结束 ===== */
-
     await this.e.reply(await Bot.makeForwardMsg(nodes));
   }
 }
