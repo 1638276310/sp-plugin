@@ -31,10 +31,10 @@ export class MagnetLink extends plugin {
     const resultCount = parseInt(match[7]) || 10;
 
     const urls = [
-      `https://jutsjfzw.8800517.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://ozfqbqvy.8800518.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://msmxinmd.8800519.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
-      `https://fxmtkras.8800520.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://kbqeqsod.8800519.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://ejnifzoh.8800521.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://pmpqnwip.8800522.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
+      `https://rabpiroc.8800523.xyz/search-${userInput}-${fileType}-${orderType}-1.html`,
     ];
 
     const browser = await puppeteer.launch({
