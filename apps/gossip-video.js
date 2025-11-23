@@ -14,20 +14,23 @@ export class GossipVideo extends plugin {
       rule: [{ reg: "^#?吃瓜\\s*(\\d+)$", fnc: "video" }],
     });
   }
+
   async video() {
     const id = this.e.msg.match(/^#?吃瓜\s*(\d+)$/)[1];
     await this.e.reply("正在解析视频...", false, { at: true });
     const data = await fetchVideoById(id);
     if (!data) return this.e.reply("该 ID 不存在或已失效", false, { at: true });
+
     const nodes = [
       {
         user_id: this.e.user_id,
         nickname: this.e.sender.nickname,
         message: [
-          `✅视频信息获取成功！\n🆔文章ID: ${data.id}\n📝标题: ${data.title}\n📅发布时间: ${data.publishTime}\n📛请勿用于非法用途`,
+          `✅视频信息获取成功！\n🆔文章ID: ${data.id}\n📝标题: ${data.title}\n📛请勿用于非法用途`,
         ],
       },
     ];
+
     if (data.videoUrls.length) {
       nodes.push({
         user_id: this.e.user_id,
@@ -42,6 +45,7 @@ export class GossipVideo extends plugin {
         })
       );
     }
+
     if (data.articleContent.length) {
       nodes.push({
         user_id: this.e.user_id,
@@ -56,6 +60,7 @@ export class GossipVideo extends plugin {
         })
       );
     }
+
     if (this.e.bot?.version?.app_name === "NapCat.Onebot") {
       const ncNodes = nodes.map((node) => ({
         type: "node",

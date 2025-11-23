@@ -14,10 +14,12 @@ export class GossipIds extends plugin {
       rule: [{ reg: "^#?可用吃瓜ID$", fnc: "idsFound" }],
     });
   }
+
   async idsFound() {
     const ids = await readIds();
     if (!ids.length)
       return this.e.reply("当前没有可用的吃瓜 ID", false, { at: true });
+
     const batch = 200,
       maxBatches = 10,
       total = Math.min(ids.length, batch * maxBatches);

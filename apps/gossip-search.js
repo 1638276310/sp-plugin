@@ -14,12 +14,14 @@ export class GossipSearch extends plugin {
       rule: [{ reg: "^#?吃瓜搜索\\s*(\\S+)$", fnc: "search" }],
     });
   }
+
   async search() {
     const kw = this.e.msg.match(/^#?吃瓜搜索\s*(\S+)$/)[1].trim();
     await this.e.reply(`正在搜索“${kw}”...`, false, { at: true });
     const list = await searchArticlesByKeyword(kw);
     if (!list.length)
       return this.e.reply("未找到相关文章", false, { at: true });
+
     const nodes = [
       {
         user_id: this.e.user_id,
@@ -34,6 +36,7 @@ export class GossipSearch extends plugin {
         message: [`${i + 1}. ${it.title}\n📌ID: ${it.id}`],
       });
     });
+
     if (this.e.bot?.version?.app_name === "NapCat.Onebot") {
       const ncNodes = nodes.map((node) => ({
         type: "node",

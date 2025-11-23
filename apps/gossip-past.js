@@ -14,11 +14,13 @@ export class GossipPast extends plugin {
       rule: [{ reg: "^#?吃瓜(\\d+)个往期$", fnc: "past" }],
     });
   }
+
   async past() {
     const n = parseInt(this.e.msg.match(/^#?吃瓜(\d+)个往期$/)[1]);
     await this.e.reply(`正在获取前 ${n} 个往期文章...`, false, { at: true });
     const list = await fetchPastArticles(n);
     if (!list.length) return this.e.reply("获取失败", false, { at: true });
+
     const nodes = [
       {
         user_id: this.e.user_id,
@@ -33,6 +35,7 @@ export class GossipPast extends plugin {
         message: [`${i + 1}. 📝标题: ${it.title}\n🆔ID: ${it.id}`],
       });
     });
+
     if (this.e.bot?.version?.app_name === "NapCat.Onebot") {
       const ncNodes = nodes.map((node) => ({
         type: "node",
