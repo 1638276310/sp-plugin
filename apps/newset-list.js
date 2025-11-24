@@ -24,7 +24,6 @@ export class NewSetList extends plugin {
     const list = await fetchSetByPage(page);
     if (!list.length) return this.e.reply("本页暂无数据", false, { at: true });
 
-    /* ---------- 构造 NapCat 转发节点 ---------- */
     const nodes = [
       {
         type: "node",

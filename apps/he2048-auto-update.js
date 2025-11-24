@@ -9,12 +9,12 @@ export class NewSetAutoUpdate extends plugin {
   constructor() {
     super({
       name: "最新合集自动更新",
-      dsc: "每天 12:00 自动生成最新合集 ID 列表",
+      dsc: "每天 18:00 自动生成最新合集 ID 列表",
       event: "message",
       rule: [],
     });
     this.task = {
-      cron: "0 0 12 * * ?",
+      cron: "0 0 18 * * ?",
       name: "最新合集ID自动刷新",
       fnc: () => this.doRefresh(),
       log: true,
