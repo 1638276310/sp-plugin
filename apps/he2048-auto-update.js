@@ -14,7 +14,7 @@ export class NewSetAutoUpdate extends plugin {
       rule: [],
     });
     this.task = {
-      cron: "0 0 18 * * ?",
+      cron: "0 5 12 * * ?",
       name: "最新合集ID自动刷新",
       fnc: () => this.doRefresh(),
       log: true,
