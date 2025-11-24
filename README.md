@@ -18,17 +18,6 @@ git clone https://gitee.com/q1638276310/sp-plugin.git ./plugins/sp-plugin/
 pnpm i --filter=sp-plugin
 ```
 
-### 为防止风控，所以安装Python来处理图片
-
-## 安装Python依赖
-
-```bash
-cd ./plugins/sp-plugin/
-```
-
-```bash
-sudo apt install python3-pil
-```
 
 ## 说明
 

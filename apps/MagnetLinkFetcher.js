@@ -2,11 +2,7 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import YAML from "yaml";
 import { magnetURL } from "../config/api.js";
-import { execFile } from "child_process";
-import { promisify } from "util";
-
-const execFileAsync = promisify(execFile);
-const pythonCommand = process.platform === "win32" ? "python" : "python3";
+import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
 export class MagnetLinkFetcher extends plugin {
   constructor() {
@@ -45,7 +41,6 @@ export class MagnetLinkFetcher extends plugin {
   }
 
   async fetchWithPuppeteer(url, e) {
-    // if (!e.isGroup) return;
     await this.reply("正在验车，请稍等...", false, { at: true, recallMsg: 60 });
     let browser;
     try {
@@ -66,7 +61,6 @@ export class MagnetLinkFetcher extends plugin {
         timeout: 60000,
       });
 
-      // 双重解析策略
       try {
         const jsonContent = await page.$eval(
           'div[hidden="true"]',
@@ -83,7 +77,6 @@ export class MagnetLinkFetcher extends plugin {
         });
       }
 
-      // 验证响应数据
       if (!responseData || typeof responseData !== "object") {
         throw new Error("无效的响应数据格式");
       }
@@ -140,20 +133,13 @@ export class MagnetLinkFetcher extends plugin {
 
     try {
       fs.writeFileSync(tempImagePath, imageBuffer);
-      const { stdout } = await execFileAsync(pythonCommand, [
-        "./plugins/sp-plugin/modify_image.py",
-        tempImagePath,
-      ]);
-
-      const modifiedImagePath = stdout.trim();
+      const modifiedImagePath = await modifyImageSharp(tempImagePath);
       if (!fs.existsSync(modifiedImagePath)) {
-        throw new Error("Python处理图片失败");
+        throw new Error("Sharp处理图片失败");
       }
-
       const modifiedImageBuffer = fs.readFileSync(modifiedImagePath);
       cleanUp();
       fs.unlinkSync(modifiedImagePath);
-
       return modifiedImageBuffer;
     } catch (error) {
       cleanUp();
@@ -212,7 +198,6 @@ export class MagnetLinkFetcher extends plugin {
           screenshotData.push("该磁力无有效视频截图");
         }
 
-        // 构建消息列表
         const msgList = [
           {
             message: msgData.join(""),
@@ -229,12 +214,10 @@ export class MagnetLinkFetcher extends plugin {
           });
         });
 
-        // 发送合并转发消息
         const forwardMsg = e.isGroup
           ? await e.group.makeForwardMsg(msgList)
           : await e.friend.makeForwardMsg(msgList);
 
-        // 处理消息撤回
         const recallConfig = this.getRecallConfig();
         const sentMessage = await e.reply(forwardMsg);
 
@@ -246,7 +229,7 @@ export class MagnetLinkFetcher extends plugin {
           }, recallConfig.time).unref();
         }
 
-        return; // 成功则退出重试循环
+        return;
       } catch (error) {
         logger.error(`第${3 - retryCount}次尝试失败:`, error);
         if (retryCount > 0) {

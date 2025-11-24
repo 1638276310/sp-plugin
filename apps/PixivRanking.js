@@ -2,10 +2,8 @@ import axios from "axios";
 import fs from "fs";
 import YAML from "yaml";
 import { pid } from "../config/api.js";
-import { execFile } from "child_process";
+import { modifyImageSharp } from "../lib/sharp-pixel.js";
 import path from "path";
-
-const pythonCommand = process.platform === "win32" ? "python" : "python3";
 
 export class DailyRankImageFetcher extends plugin {
   constructor() {
@@ -50,19 +48,7 @@ export class DailyRankImageFetcher extends plugin {
   }
 
   async modifyImageWithPython(imagePath) {
-    return new Promise((resolve, reject) => {
-      execFile(
-        pythonCommand,
-        ["./plugins/sp-plugin/modify_image.py", imagePath],
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stdout.trim());
-          }
-        }
-      );
-    });
+    return modifyImageSharp(imagePath);
   }
 
   deleteTempFiles() {
@@ -72,7 +58,6 @@ export class DailyRankImageFetcher extends plugin {
         logger.error("读取temp目录失败：", err);
         return;
       }
-
       files.forEach((file) => {
         const filePath = path.join(tempDir, file);
         fs.unlink(filePath, (err) => {
@@ -85,8 +70,6 @@ export class DailyRankImageFetcher extends plugin {
   }
 
   async _processDailyRank(e) {
-    // if (!e.isGroup) return;
-    // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
     const match = e.msg.match(
       this.rule.find((rule) => e.msg.match(rule.reg)).reg
     );
@@ -170,7 +153,6 @@ export class DailyRankImageFetcher extends plugin {
         : await e.friend.makeForwardMsg(validImageMessages);
 
       const recallConfig = this.getRecallConfig();
-
       const sentMessage = await e.reply(forwardMsg);
 
       if (recallConfig.recall) {

@@ -2,11 +2,7 @@ import axios from "axios";
 import fs from "fs";
 import YAML from "yaml";
 import { pid, user } from "../config/api.js";
-import { execFile } from "child_process";
-import { promisify } from "util";
-
-const execFileAsync = promisify(execFile);
-const pythonCommand = process.platform === "win32" ? "python" : "python3";
+import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
 export class PixivArtistWorksFetcher extends plugin {
   constructor() {
@@ -54,20 +50,12 @@ export class PixivArtistWorksFetcher extends plugin {
 
   async modifyImageWithPython(imageBuffer, imageName) {
     const tempImagePath = `./plugins/sp-plugin/temp/temp_${imageName}.jpg`;
-
     fs.writeFileSync(tempImagePath, imageBuffer);
-
     try {
-      const { stdout } = await execFileAsync(pythonCommand, [
-        "./plugins/sp-plugin/modify_image.py",
-        tempImagePath,
-      ]);
-      const modifiedImagePath = stdout.trim();
+      const modifiedImagePath = await modifyImageSharp(tempImagePath);
       const modifiedImageBuffer = fs.readFileSync(modifiedImagePath);
-
       fs.unlinkSync(tempImagePath);
       fs.unlinkSync(modifiedImagePath);
-
       return modifiedImageBuffer;
     } catch (error) {
       fs.unlinkSync(tempImagePath);
@@ -101,7 +89,6 @@ export class PixivArtistWorksFetcher extends plugin {
 
     try {
       const artistData = await this.fetchArtistDetails(artistId);
-
       if (!artistData || artistData.error) {
         await e.reply("请输入正确的画师ID");
         return;
@@ -120,7 +107,6 @@ export class PixivArtistWorksFetcher extends plugin {
         this.fetchWorkDetails(workId)
       );
       const workDetailsList = await Promise.all(workDetailsPromises);
-
       await this.sendCombinedWorkDetails(e, workDetailsList);
     } catch (error) {
       await e.reply(`发生错误：${error.toString()}`);
@@ -133,7 +119,6 @@ export class PixivArtistWorksFetcher extends plugin {
     const imageDataTasks = workDetailsList.map(async (details, index) => {
       const body = details.body;
       const imageUrls = Object.values(body.urls);
-
       const tagList = body.tags.tags.map((tagObj) => tagObj.tag);
 
       const msgData = [

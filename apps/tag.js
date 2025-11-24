@@ -2,10 +2,7 @@ import axios from "axios";
 import fs from "fs";
 import YAML from "yaml";
 import { pid, tag as fetchTag } from "../config/api.js";
-import { execFile } from "child_process";
-import path from "path";
-
-const pythonCommand = process.platform === "win32" ? "python" : "python3";
+import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
 export class SetuImageFetcher extends plugin {
   constructor() {
@@ -54,45 +51,7 @@ export class SetuImageFetcher extends plugin {
     return shuffled.slice(0, count);
   }
 
-  async modifyImageWithPython(imagePath) {
-    return new Promise((resolve, reject) => {
-      execFile(
-        pythonCommand,
-        ["./plugins/sp-plugin/modify_image.py", imagePath],
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(stdout.trim());
-          }
-        }
-      );
-    });
-  }
-
-  deleteTempFiles() {
-    const tempDir = path.resolve("./plugins/sp-plugin/temp");
-    fs.readdir(tempDir, (err, files) => {
-      if (err) {
-        logger.error("读取temp目录失败：", err);
-        return;
-      }
-
-      files.forEach((file) => {
-        const filePath = path.join(tempDir, file);
-        fs.unlink(filePath, (err) => {
-          if (err) {
-            logger.error(`删除文件失败：${filePath}`, err);
-          }
-        });
-      });
-    });
-  }
-
   async _processSetuImages(e) {
-    // if (!e.isGroup) return;
-    // await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-    // this.deleteTempFiles();
     const [, numStr, tag] = e.msg.match(
       this.rule.find((rule) => e.msg.match(rule.reg)).reg
     );
@@ -118,7 +77,6 @@ export class SetuImageFetcher extends plugin {
       at: true,
       recallMsg: 60,
     });
-    // await e.reply(`图片获取完毕，正在发送中...`);
 
     const imageMessages = await Promise.all(
       detailsList.map(async (details, index) => {
@@ -145,9 +103,7 @@ export class SetuImageFetcher extends plugin {
             validImageDatas.map(async (imageData, i) => {
               const imagePath = `./plugins/sp-plugin/temp/temp_image_${index}_${i}.jpg`;
               fs.writeFileSync(imagePath, imageData);
-              const modifiedImagePath = await this.modifyImageWithPython(
-                imagePath
-              );
+              const modifiedImagePath = await modifyImageSharp(imagePath);
               return modifiedImagePath;
             })
           );
@@ -183,7 +139,6 @@ export class SetuImageFetcher extends plugin {
         : await e.friend.makeForwardMsg(validImageMessages);
 
       const recallConfig = this.getRecallConfig();
-
       const sentMessage = await e.reply(forwardMsg);
 
       if (recallConfig.recall) {
@@ -193,8 +148,6 @@ export class SetuImageFetcher extends plugin {
             : e.friend.recallMsg(sentMessage.message_id);
         }, recallConfig.time);
       }
-
-      this.deleteTempFiles();
     }
   }
 }
