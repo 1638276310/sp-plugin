@@ -36,7 +36,7 @@ function parsePage(html) {
     res.push({
       tid: m[1],
       title: m[2].trim(),
-      url: `https://7fep.27l4l.com/read.php?tid=${m[1]}`,
+      url: `https://cvkz.23und.com/read.php?tid=${m[1]}`,
     });
   }
   return res;
