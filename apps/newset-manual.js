@@ -29,14 +29,14 @@ async function downloadPage(page) {
 /* 解析 HTML 提取合集 */
 function parsePage(html) {
   const tidReg =
-    /<a href="read\.php\?tid=(\d+)"[^>]*class="subject"[^>]*>([^<]+)<\/a>/gi;
+    /<a\b[^>]*href=["']read\.php\?tid=(\d+)["'][^>]*class=["']subject["'][^>]*>([^<]+)<\/a>/gi;
   const res = [];
   let m;
   while ((m = tidReg.exec(html)) !== null) {
     res.push({
       tid: m[1],
       title: m[2].trim(),
-      url: `https://cvkz.23und.com/read.php?tid=${m[1]}`,
+      url: `https://7fep.27l4l.com/read.php?tid=${m[1]}`,
     });
   }
   return res;
