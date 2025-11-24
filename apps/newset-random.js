@@ -31,7 +31,7 @@ export class NewSetRandom extends plugin {
             {
               type: "text",
               data: {
-                text: `🎲随机合集\n标题：${item.title}\n链接：https://7fep.27l4l.com/read.php?tid=${item.tid}`,
+                text: `🎲随机合集\n标题：${item.title}\n链接：https://cvkz.23und.com/read.php?tid=${item.tid}`,
               },
             },
           ],

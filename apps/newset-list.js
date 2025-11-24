@@ -49,7 +49,7 @@ export class NewSetList extends plugin {
             {
               type: "text",
               data: {
-                text: `标题：${it.title}\n链接：https://7fep.27l4l.com/read.php?tid=${it.tid}`,
+                text: `标题：${it.title}\n链接：https://cvkz.23und.com/read.php?tid=${it.tid}`,
               },
             },
           ],
