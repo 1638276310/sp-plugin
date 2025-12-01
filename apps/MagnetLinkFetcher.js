@@ -169,8 +169,16 @@ export class MagnetLinkFetcher extends plugin {
           `文件大小：${(response.size / 1e9).toFixed(1)}GB\n`,
         ];
 
-        // 只处理有效截图
-        let screenshotData = [];
+        // 构建转发消息，只包含基本信息
+        const msgList = [
+          {
+            message: msgData.join(""),
+            nickname: e.user_id.toString(),
+            user_id: e.user_id,
+          },
+        ];
+
+        // 只有在有截图数据时才处理和添加截图
         if (response.screenshots?.length > 0) {
           const processingPromises = response.screenshots
             .slice(0, 9)
@@ -190,29 +198,20 @@ export class MagnetLinkFetcher extends plugin {
               }
             });
 
-          screenshotData = (await Promise.all(processingPromises)).filter(
+          const screenshotData = (await Promise.all(processingPromises)).filter(
             Boolean
           );
-        }
 
-        // 构建转发消息
-        const msgList = [
-          {
-            message: msgData.join(""),
-            nickname: e.user_id.toString(),
-            user_id: e.user_id,
-          },
-        ];
-
-        // 只有在有有效截图时才添加截图消息
-        if (screenshotData.length > 0) {
-          screenshotData.forEach((screenshot, index) => {
-            msgList.push({
-              message: [`截图 ${index + 1}`, "\n", segment.image(screenshot)],
-              nickname: e.user_id.toString(),
-              user_id: e.user_id,
+          // 只有成功获取的截图才添加到转发消息
+          if (screenshotData.length > 0) {
+            screenshotData.forEach((screenshot, index) => {
+              msgList.push({
+                message: [`截图 ${index + 1}`, "\n", segment.image(screenshot)],
+                nickname: e.user_id.toString(),
+                user_id: e.user_id,
+              });
             });
-          });
+          }
         }
 
         const forwardMsg = e.isGroup
