@@ -169,6 +169,7 @@ export class MagnetLinkFetcher extends plugin {
           `文件大小：${(response.size / 1e9).toFixed(1)}GB\n`,
         ];
 
+        // 只处理有效截图
         let screenshotData = [];
         if (response.screenshots?.length > 0) {
           const processingPromises = response.screenshots
@@ -194,10 +195,7 @@ export class MagnetLinkFetcher extends plugin {
           );
         }
 
-        if (screenshotData.length === 0) {
-          screenshotData.push("该磁力无有效视频截图");
-        }
-
+        // 构建转发消息
         const msgList = [
           {
             message: msgData.join(""),
@@ -206,13 +204,16 @@ export class MagnetLinkFetcher extends plugin {
           },
         ];
 
-        screenshotData.forEach((screenshot, index) => {
-          msgList.push({
-            message: [`截图 ${index + 1}`, "\n", segment.image(screenshot)],
-            nickname: e.user_id.toString(),
-            user_id: e.user_id,
+        // 只有在有有效截图时才添加截图消息
+        if (screenshotData.length > 0) {
+          screenshotData.forEach((screenshot, index) => {
+            msgList.push({
+              message: [`截图 ${index + 1}`, "\n", segment.image(screenshot)],
+              nickname: e.user_id.toString(),
+              user_id: e.user_id,
+            });
           });
-        });
+        }
 
         const forwardMsg = e.isGroup
           ? await e.group.makeForwardMsg(msgList)
