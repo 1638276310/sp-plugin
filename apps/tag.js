@@ -57,7 +57,7 @@ export class SetuImageFetcher extends plugin {
     );
     const num = parseInt(numStr);
 
-    if (num > 10) {
+    if (num > 20) {
       await e.reply("你想冲死吗？");
       return;
     }
