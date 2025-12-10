@@ -24,7 +24,7 @@ export class sphelp extends plugin {
     });
   }
 
-  async sp_help(e) {
+  async sp_help_text(e) {
     let helpText = "【涩批(sp)插件文字帮助】\n\n";
 
     helpText += "【P站图片获取】\n";

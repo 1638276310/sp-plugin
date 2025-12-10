@@ -136,7 +136,7 @@ export class Update extends plugin {
     let line = log.length
     if (line <= 0) return ''
     
-    let end = '更多详细信息，请前往gitee查看\nhttps://gitee.com/dungeonmaster/sp-plugin'
+    let end = '更多详细信息，请前往gitee查看\nhttps://gitee.com/1638276310/sp-plugin'
     log = await common.makeForwardMsg(this.e, [log.join('\n\n'), end], `${plugin}更新日志，共${line}条`)
     return log
   }
