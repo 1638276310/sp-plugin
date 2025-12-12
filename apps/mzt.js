@@ -348,10 +348,10 @@ export class mztPlugin extends plugin {
         const requestBody = {
           group_id: e.group_id,
           user_id: e.user_id,
-          message: nodes,
+          messages: nodes,
           news: [{ text: "QQ/VX：1638276310" }],
           prompt: "QQ/VX：1638276310",
-          summary: `QQ/VX：1638276310`,
+          summary: "QQ/VX：1638276310",
           source: "QQ/VX：1638276310",
         };
 
