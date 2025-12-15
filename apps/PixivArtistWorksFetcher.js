@@ -13,10 +13,6 @@ export class PixivArtistWorksFetcher extends plugin {
       priority: -Infinity,
       rule: [
         {
-          reg: "^#?来(\\d+)张(\\d+)作品$",
-          fnc: "processLatestArtistWorks",
-        },
-        {
           reg: "^#?随机(\\d+)张(\\d+)作品$",
           fnc: "processRandomArtistWorks",
         },
@@ -63,20 +59,10 @@ export class PixivArtistWorksFetcher extends plugin {
     }
   }
 
-  async processLatestArtistWorks(e) {
-    await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-    await this._processArtistWorks(e, false);
-  }
-
   async processRandomArtistWorks(e) {
     await e.reply("正在搜索，请稍等...", false, { at: true, recallMsg: 60 });
-    await this._processArtistWorks(e, true);
-  }
 
-  async _processArtistWorks(e, isRandom) {
-    const match = e.msg.match(
-      isRandom ? /^#?随机(\d+)张(\d+)作品$/ : /^#来(\d+)张(\d+)作品$/
-    );
+    const match = e.msg.match(/^#?随机(\d+)张(\d+)作品$/);
     if (!match) return;
 
     const num = parseInt(match[1]);
@@ -94,14 +80,8 @@ export class PixivArtistWorksFetcher extends plugin {
         return;
       }
 
-      let workIDs;
-      const allWorkIDs = Object.keys(artistData.body.illusts).reverse();
-
-      if (isRandom) {
-        workIDs = this.shuffleArray(allWorkIDs).slice(0, num);
-      } else {
-        workIDs = allWorkIDs.slice(0, num);
-      }
+      const allWorkIDs = Object.keys(artistData.body.illusts);
+      const workIDs = this.shuffleArray(allWorkIDs).slice(0, num);
 
       const workDetailsPromises = workIDs.map((workId) =>
         this.fetchWorkDetails(workId)

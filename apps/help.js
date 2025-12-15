@@ -29,10 +29,8 @@ export class sphelp extends plugin {
 
     helpText += "【P站图片获取】\n";
     helpText += "· #pid+数字 - 获取P站单张作品\n";
-    helpText += "· #来X张Y作品 - 获取画师最新作品(X≤30)\n";
-    helpText += "· #随机X张Y作品 - 随机获取画师作品(X≤30)\n";
-    helpText += "· #每日排行X - 获取每日排行(X≤30，默认10)\n";
-    helpText += "· #来X张XX图 - 按标签搜索图片\n\n";
+    helpText += "· #随机X张Y作品 - 随机获取画师作品(X≤20)\n";
+    helpText += "· #来X张XX图 - 按标签搜索图片(X≤15)\n\n";
 
     helpText += "【磁力链接】\n";
     helpText += "· #磁力猫+关键词 - 磁力猫搜索\n";
@@ -69,7 +67,7 @@ export class sphelp extends plugin {
   }
 
   async sp_help_img() {
-    const imagePath = "./plugins/sp-plugin/config/help.png";
+    const imagePath = "./plugins/sp-plugin/config/help.jpg";
     let msg = [segment.image(`file://${imagePath}`)];
     this.e.reply(msg);
     return true;
