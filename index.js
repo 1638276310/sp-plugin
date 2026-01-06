@@ -12,6 +12,7 @@ logger.info(`------------kk need p------------`);
 logger.info(logger.yellow(`---------QQ群：991639461---------`));
 logger.info(`------------kk need p------------`);
 logger.info(`------------kk need p------------`);
+logger.info(`------------kk need p------------`);
 
 
 files.forEach((file) => {

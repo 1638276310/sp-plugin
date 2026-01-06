@@ -15,8 +15,8 @@ export class ArtistSubscription extends plugin {
         { reg: "^#订阅画师(\\d+)$", fnc: "subscribeArtist" },
         { reg: "^#取消订阅(\\d+)$", fnc: "unsubscribeArtist" },
         { reg: "^#订阅列表$", fnc: "listSubscribedArtists" },
-        { reg: "^#开启p推送$", fnc: "enablePush" },
-        { reg: "^#关闭p推送$", fnc: "disablePush" },
+        { reg: "^#sp推送$", fnc: "enablePush" },
+        { reg: "^#关闭sp推送$", fnc: "disablePush" },
       ],
     });
   }
@@ -240,9 +240,9 @@ export class ArtistSubscription extends plugin {
     if (!data[groupId].pushEnabled) {
       data[groupId].pushEnabled = true;
       this.saveData(data);
-      await this.customReply(e, "已开启p推送。");
+      await this.customReply(e, "已开启sp推送。");
     } else {
-      await this.customReply(e, "已经开启了p推送。");
+      await this.customReply(e, "已经开启了sp推送。");
     }
   }
 
@@ -255,9 +255,9 @@ export class ArtistSubscription extends plugin {
     if (data[groupId].pushEnabled) {
       data[groupId].pushEnabled = false;
       this.saveData(data);
-      await this.customReply(e, "已关闭p推送。");
+      await this.customReply(e, "已关闭sp推送。");
     } else {
-      await this.customReply(e, "尚未开启p推送，无需关闭。");
+      await this.customReply(e, "尚未开启sp推送，无需关闭。");
     }
   }
 }
