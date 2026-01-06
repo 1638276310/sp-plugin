@@ -26,16 +26,26 @@ export class sphelp extends plugin {
 
   async sp_help_text(e) {
     let helpText = "【涩批(sp)插件文字帮助】\n\n";
-
-    helpText += "【暴走黑料】\n";
-    helpText += "· #黑料+ID - 获取暴走黑料文章\n";
-    helpText += "· #随机黑料 - 随机获取暴走黑料文章\n\n";
+	
+    helpText += "【网址获取】\n";
+    helpText += "· #写真网址 - 获取写真网站网址\n";
+    helpText += "· #福利网址 - 获取福利网站网址\n";
+	helpText += "· #吃瓜网址 - 获取吃瓜网站网址\n";
+	helpText += "· #导航网址 - 获取导航网站网址\n";
+	helpText += "· #福利App - 获取福利App下载链接\n";
+	helpText += "· #TG电报 - 获取TG电报频道链接\n\n";
+	
+    // 在【妹子图】部分添加：
+    helpText += "【妹子图】\n";
+	helpText += "· #写真馆+ID - 获取妹子图图片\n";
+	helpText += "· #随机写真 - 随机获取妹子图\n";
+	helpText += "· #更新写真ID - 更新写真ID列表\n\n";
 
     helpText += "【P站图片获取】\n";
     helpText += "· #pid+数字 - 获取P站单张作品\n";
     helpText += "· #随机X张Y作品 - 随机获取画师作品(X≤20)\n";
     helpText += "· #来X张XX图 - 按标签搜索图片(X≤15)\n\n";
-
+	
     helpText += "【磁力链接】\n";
     helpText += "· #磁力猫+关键词 - 磁力猫搜索\n";
     helpText += "· #验车+磁力链接 - 查询磁力链接详情\n\n";
@@ -55,13 +65,6 @@ export class sphelp extends plugin {
     helpText += "· #设置sp撤回X - 设置撤回时间(10-120秒)\n";
     helpText += "· #设置R18模式X - 0:全部 1:非R18 2:R18\n";
     helpText += "· #设置图片偏好X - 0:无偏好 1:男性 2:女性\n\n";
-
-    // helpText += "【吃瓜套件】\n";
-    // helpText += "· #吃瓜+ID - 获取吃瓜视频/文章\n";
-    // helpText += "· #吃瓜搜索+关键词 - 搜索吃瓜内容\n";
-    // helpText += "· #随机吃瓜 - 随机获取吃瓜\n";
-    // helpText += "· #吃瓜X个往期 - 获取往期内容\n";
-    // helpText += "· #更新吃瓜 - 手动刷新吃瓜数据\n\n";
 
     helpText += "【插件管理】\n";
     helpText += "· #sp更新 / #sp强制更新 - 更新插件\n\n";
