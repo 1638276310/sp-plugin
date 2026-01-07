@@ -116,7 +116,7 @@ export class multiUrlPlugin extends plugin {
           user_id: e.user_id,
         })),
         {
-          message: `⚠️ 提示：网址仅供参考，请谨慎访问\n#${type}网址 可再次获取`,
+          message: `⚠️ 提示：网址仅供参考，请谨慎访问\n#${type}网址 可再次获取\n请复制链接到浏览器打开，切勿直接点击`,
           nickname: e.user_id.toString(),
           user_id: e.user_id,
         },
@@ -197,7 +197,7 @@ export class multiUrlPlugin extends plugin {
             plainText += `${index + 1}. ${url}\n`;
           });
           plainText += `\n⏰ 更新时间: ${currentTime}\n`;
-          plainText += `⚠️ 提示：网址仅供参考，请谨慎访问`;
+          plainText += `⚠️ 提示：网址仅供参考，请谨慎访问\n请复制链接到浏览器打开，切勿直接点击`;
 
           await e.reply(plainText);
         }
