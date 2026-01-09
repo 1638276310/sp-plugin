@@ -1,6 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 import YAML from "yaml";
+import https from "https"; // 新增导入
 import { pid, tag as fetchTag } from "../config/api.js";
 import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
@@ -29,10 +30,23 @@ export class SetuImageFetcher extends plugin {
   async fetchPixivImageDetails(pidValue) {
     const apiUrl = pid(pidValue);
     try {
-      const response = await axios.get(apiUrl);
+      // 修改点1: 添加忽略SSL证书验证的配置
+      const response = await axios.get(apiUrl, {
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false
+        })
+      });
       return response.data;
     } catch (error) {
-      return null;
+      // 修改点2: 如果HTTPS失败，尝试使用HTTP
+      try {
+        const httpUrl = apiUrl.replace('https://', 'http://');
+        const response = await axios.get(httpUrl);
+        return response.data;
+      } catch (httpError) {
+        console.error("HTTP请求也失败:", httpError.message);
+        return null;
+      }
     }
   }
 
@@ -42,8 +56,25 @@ export class SetuImageFetcher extends plugin {
     const order = config.order || "popular_d";
     const apiUrl = `${fetchTag(tagValue)}&mode=${mode}&order=${order}`;
 
-    const response = await axios.get(apiUrl);
-    return response.data.body.data.map((item) => item.id);
+    try {
+      // 修改点3: 添加忽略SSL证书验证的配置
+      const response = await axios.get(apiUrl, {
+        httpsAgent: new https.Agent({
+          rejectUnauthorized: false
+        })
+      });
+      return response.data.body.data.map((item) => item.id);
+    } catch (error) {
+      // 修改点4: 如果HTTPS失败，尝试使用HTTP
+      const httpUrl = apiUrl.replace('https://', 'http://');
+      try {
+        const response = await axios.get(httpUrl);
+        return response.data.body.data.map((item) => item.id);
+      } catch (httpError) {
+        console.error("Tag搜索HTTP请求也失败:", httpError.message);
+        return [];
+      }
+    }
   }
 
   getRandomIds(ids, count) {
@@ -88,12 +119,32 @@ export class SetuImageFetcher extends plugin {
 
           const imageDatas = await Promise.all(
             imageUrls.map(async (imageUrl) => {
-              const imageDataResponse = await axios.get(imageUrl, {
-                responseType: "arraybuffer",
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-              });
-              return imageDataResponse.data;
+              try {
+                // 修改点5: 图片下载也添加SSL忽略
+                const imageDataResponse = await axios.get(imageUrl, {
+                  responseType: "arraybuffer",
+                  maxContentLength: Infinity,
+                  maxBodyLength: Infinity,
+                  httpsAgent: new https.Agent({
+                    rejectUnauthorized: false
+                  })
+                });
+                return imageDataResponse.data;
+              } catch (error) {
+                // 修改点6: 图片下载也尝试HTTP回退
+                try {
+                  const httpUrl = imageUrl.replace('https://', 'http://');
+                  const imageDataResponse = await axios.get(httpUrl, {
+                    responseType: "arraybuffer",
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
+                  });
+                  return imageDataResponse.data;
+                } catch (httpError) {
+                  console.error(`图片下载失败: ${imageUrl}`, httpError.message);
+                  return null;
+                }
+              }
             })
           );
 
