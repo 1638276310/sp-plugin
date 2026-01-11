@@ -14,8 +14,8 @@ git clone https://github.com/1638276310/sp-plugin.git ./plugins/sp-plugin/
 
 SSH源（需配置SSH密钥）
 ```bash
-git clone git@gitee.com:q1638276310/sp-plugin.git ./plugin/sp-plugin/   #Gitee SSH
-git clone git@github.com:1638276310/sp-plugin.git ./plugin/sp-plugin/   #GitHub SSH
+git clone git@gitee.com:q1638276310/sp-plugin.git ./plugins/sp-plugin/   #Gitee SSH
+git clone git@github.com:1638276310/sp-plugin.git ./plugins/sp-plugin/   #GitHub SSH
 ```
 
 ## 安装依赖
