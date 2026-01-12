@@ -59,12 +59,12 @@ export class CosImageFetcher extends plugin {
   }
 
   async process2Images(e) {
-    const url = `https://img.mengxix.top/index.php?category=acg&type=img`;
+    const url = `https://img.mengxix.top/?category=acg`;
     await this.sendImages(e, url);
   }
 
   async process3Images(e) {
-    const url = `https://img.mengxix.top/index.php?category=reality&type=img`;
+    const url = `https://img.mengxix.top/?category=reality`;
     await this.sendImages(e, url);
   }
 
