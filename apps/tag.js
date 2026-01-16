@@ -5,7 +5,18 @@ import https from "https";
 import { pid, tag as fetchTag } from "../config/api.js";
 import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
+/**
+ * SetuImageFetcher类
+ * 通过tag搜索Pixiv图片并发送
+ * @class SetuImageFetcher
+ * @extends plugin
+ */
 export class SetuImageFetcher extends plugin {
+    /**
+     * 构造函数
+     * 初始化插件名称、描述、事件、优先级和规则
+     * @constructor
+     */
     constructor() {
         super({
             name: "Setu Image Fetch",
@@ -21,16 +32,28 @@ export class SetuImageFetcher extends plugin {
         });
     }
 
+    /**
+     * 获取撤回配置
+     * 从recall.yaml配置文件中读取撤回设置
+     * @returns {Object} 撤回配置对象
+     */
     getRecallConfig() {
         const path = "./plugins/sp-plugin/config/recall.yaml";
         const fileContents = fs.readFileSync(path, "utf8");
         return YAML.parse(fileContents);
     }
 
+    /**
+     * 获取Pixiv图片详情
+     * 通过PID获取图片的详细信息
+     * @async
+     * @param {string|number} pidValue - Pixiv图片ID
+     * @returns {Promise<Object|null>} 图片详情数据或null
+     */
     async fetchPixivImageDetails(pidValue) {
         const apiUrl = pid(pidValue);
         try {
-            // 修改点1: 添加忽略SSL证书验证的配置
+            // 添加忽略SSL证书验证的配置
             const response = await axios.get(apiUrl, {
                 httpsAgent: new https.Agent({
                     rejectUnauthorized: false
@@ -38,7 +61,7 @@ export class SetuImageFetcher extends plugin {
             });
             return response.data;
         } catch (error) {
-            // 修改点2: 如果HTTPS失败，尝试使用HTTP
+            // 如果HTTPS失败，尝试使用HTTP
             try {
                 const httpUrl = apiUrl.replace('https://', 'http://');
                 const response = await axios.get(httpUrl);
@@ -50,6 +73,13 @@ export class SetuImageFetcher extends plugin {
         }
     }
 
+    /**
+     * 获取标签搜索结果
+     * 通过tag搜索Pixiv图片
+     * @async
+     * @param {string} tagValue - 搜索标签
+     * @returns {Promise<Array>} 图片ID数组
+     */
     async fetchTagSearchResults(tagValue) {
         const config = this.getRecallConfig();
         const mode = config.mode || "all";
@@ -57,7 +87,7 @@ export class SetuImageFetcher extends plugin {
         const apiUrl = `${fetchTag(tagValue)}&mode=${mode}&order=${order}`;
 
         try {
-            // 修改点3: 添加忽略SSL证书验证的配置
+            // 添加忽略SSL证书验证的配置
             const response = await axios.get(apiUrl, {
                 httpsAgent: new https.Agent({
                     rejectUnauthorized: false
@@ -65,7 +95,7 @@ export class SetuImageFetcher extends plugin {
             });
             return response.data.body.data.map((item) => item.id);
         } catch (error) {
-            // 修改点4: 如果HTTPS失败，尝试使用HTTP
+            // 如果HTTPS失败，尝试使用HTTP
             const httpUrl = apiUrl.replace('https://', 'http://');
             try {
                 const response = await axios.get(httpUrl);
@@ -77,11 +107,25 @@ export class SetuImageFetcher extends plugin {
         }
     }
 
+    /**
+     * 随机获取指定数量的ID
+     * 从ID数组中随机选择指定数量的ID
+     * @param {Array} ids - ID数组
+     * @param {number} count - 需要获取的数量
+     * @returns {Array} 随机选择的ID数组
+     */
     getRandomIds(ids, count) {
         const shuffled = ids.sort(() => 0.5 - Math.random());
         return shuffled.slice(0, count);
     }
 
+    /**
+     * 处理色图图片请求
+     * 主处理函数，根据tag和数量获取并发送图片
+     * @async
+     * @param {Object} e - 事件对象
+     * @returns {Promise<void>}
+     */
     async _processSetuImages(e) {
         const [, numStr, tag] = e.msg.match(
             this.rule.find((rule) => e.msg.match(rule.reg)).reg
@@ -120,7 +164,7 @@ export class SetuImageFetcher extends plugin {
                     const imageDatas = await Promise.all(
                         imageUrls.map(async (imageUrl) => {
                             try {
-                                // 修改点5: 图片下载也添加SSL忽略
+                                // 图片下载也添加SSL忽略
                                 const imageDataResponse = await axios.get(imageUrl, {
                                     responseType: "arraybuffer",
                                     maxContentLength: Infinity,
@@ -131,7 +175,7 @@ export class SetuImageFetcher extends plugin {
                                 });
                                 return imageDataResponse.data;
                             } catch (error) {
-                                // 修改点6: 图片下载也尝试HTTP回退
+                                // 图片下载也尝试HTTP回退
                                 try {
                                     const httpUrl = imageUrl.replace('https://', 'http://');
                                     const imageDataResponse = await axios.get(httpUrl, {

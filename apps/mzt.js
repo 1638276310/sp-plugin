@@ -2,6 +2,10 @@ import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
 
+/**
+ * 预定义的用户代理列表，用于模拟不同浏览器环境
+ * @type {Array<string>}
+ */
 const USER_AGENTS = [
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
@@ -41,6 +45,7 @@ export class mztPlugin extends plugin {
 	/**
 	 * 插件构造函数
 	 * @constructs mztPlugin
+	 * @description 初始化插件配置、规则和定时任务
 	 */
 	constructor() {
 		super({
@@ -72,7 +77,6 @@ export class mztPlugin extends plugin {
 		 * @property {Function} fnc - 任务执行函数
 		 * @property {boolean} log - 是否记录日志
 		 */
-
 		this.task = [
 			{
 				cron: "0 30 7 * * *", // 每天07:30执行
@@ -92,7 +96,10 @@ export class mztPlugin extends plugin {
 		this.loadmztIds();
 	}
 
-	// ✅ 放在这里，类内部但不在任何方法里
+	/**
+	 * 从预定义的用户代理列表中随机获取一个
+	 * @returns {string} 随机用户代理字符串
+	 */
 	getRandomUserAgent() {
 		return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 	}
@@ -101,6 +108,7 @@ export class mztPlugin extends plugin {
 	 * 加载写真ID列表
 	 * @async
 	 * @description 从文件系统加载存储的写真ID列表
+	 * @returns {Promise<void>}
 	 */
 	async loadmztIds() {
 		try {
@@ -128,6 +136,7 @@ export class mztPlugin extends plugin {
 	 * @param {Object} e - 消息事件对象
 	 * @async
 	 * @description 从已加载的写真ID列表中随机选择一个ID进行请求
+	 * @returns {Promise<void>}
 	 */
 	async randommztRequest(e) {
 		if (this.mztIds.length === 0) {
@@ -154,9 +163,11 @@ export class mztPlugin extends plugin {
 	/**
 	 * 处理写真请求
 	 * @param {Object} e - 消息事件对象
+	 * @param {boolean} [skipTip=false] - 是否跳过提示消息
 	 * @async
 	 * @description 根据提供的ID获取妹子图网站的图片并发送
 	 * @throws {Error} 如果无法获取图片或发送消息失败
+	 * @returns {Promise<void>}
 	 */
 	async processmztRequest(e, skipTip = false) {
 		if (!skipTip) {
@@ -387,6 +398,7 @@ export class mztPlugin extends plugin {
 	 * @param {Object|null} e - 消息事件对象（定时任务时为null）
 	 * @async
 	 * @description 增量爬取妹子图网站的写真ID并保存
+	 * @returns {Promise<void>}
 	 */
 	async fetchAllmztArticleIds(e) {
 		// 权限检查

@@ -1,7 +1,21 @@
 import fs from "fs";
 import YAML from "yaml";
 
+/**
+ * 撤回配置控制器插件
+ * @class RecallConfigController
+ * @classdesc 控制撤回功能的状态和时间
+ * @property {string} name - 插件名称
+ * @property {string} dsc - 插件描述
+ * @property {string} event - 监听事件
+ * @property {number} priority - 优先级
+ * @property {Array} rule - 命令规则
+ */
 export class RecallConfigController extends plugin {
+    /**
+     * 插件构造函数
+     * @constructs RecallConfigController
+     */
     constructor() {
         super({
             name: "Recall Config Controller",
@@ -29,10 +43,18 @@ export class RecallConfigController extends plugin {
         });
     }
 
+    /**
+     * 获取配置文件路径
+     * @returns {string} 配置文件路径
+     */
     getConfigPath() {
         return "./plugins/sp-plugin/config/recall.yaml";
     }
 
+    /**
+     * 获取撤回配置
+     * @returns {Object} 撤回配置对象
+     */
     getRecallConfig() {
         const path = this.getConfigPath();
         if (!fs.existsSync(path)) {
@@ -49,11 +71,21 @@ export class RecallConfigController extends plugin {
         );
     }
 
+    /**
+     * 写入撤回配置
+     * @param {Object} config - 配置对象
+     */
     writeRecallConfig(config) {
         const path = this.getConfigPath();
         fs.writeFileSync(path, YAML.stringify(config));
     }
 
+    /**
+     * 切换撤回功能状态
+     * @async
+     * @param {Object} e - 消息事件对象
+     * @returns {Promise<boolean|void>}
+     */
     async toggleRecall(e) {
         // 以下为主人权限判断，不需要仅限主人可用的可以注释掉
         if (!e.isMaster) {
@@ -77,6 +109,12 @@ export class RecallConfigController extends plugin {
         this.writeRecallConfig(config);
     }
 
+    /**
+     * 设置撤回时间
+     * @async
+     * @param {Object} e - 消息事件对象
+     * @returns {Promise<boolean|void>}
+     */
     async setRecallTime(e) {
         // 以下为主人权限判断，不需要仅限主人可用的可以注释掉
         if (!e.isMaster) {
@@ -104,6 +142,12 @@ export class RecallConfigController extends plugin {
         await e.reply(`已设置撤回时间为${timeStr}秒`);
     }
 
+    /**
+     * 设置R18模式
+     * @async
+     * @param {Object} e - 消息事件对象
+     * @returns {Promise<boolean|void>}
+     */
     async setR18Mode(e) {
         // 以下为主人权限判断，不需要仅限主人可用的可以注释掉
         if (!e.isMaster) {
@@ -124,6 +168,12 @@ export class RecallConfigController extends plugin {
         );
     }
 
+    /**
+     * 设置图片偏好
+     * @async
+     * @param {Object} e - 消息事件对象
+     * @returns {Promise<boolean|void>}
+     */
     async setImagePreference(e) {
         // 以下为主人权限判断，不需要仅限主人可用的可以注释掉
         if (!e.isMaster) {

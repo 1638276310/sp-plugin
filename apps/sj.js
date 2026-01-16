@@ -3,7 +3,32 @@ import fs from "fs";
 import YAML from "yaml";
 import path from "path";
 
+/**
+ * 视频获取插件类
+ * @class VideoFetcher
+ * @classdesc 随机获取并发送骚鸡视频，支持自动撤回功能
+ * @extends plugin
+ * 
+ * 功能特点：
+ * 1. 随机从预定义视频链接列表中选择视频
+ * 2. 下载视频到临时文件并发送
+ * 3. 支持根据配置文件自动撤回消息
+ * 4. 自动清理临时文件
+ * 
+ * @property {string[]} videoUrls - 视频链接列表
+ * 
+ * @example
+ * // 触发命令示例：
+ * // #骚鸡
+ * // #烧鸡
+ * // #sj
+ */
 export class VideoFetcher extends plugin {
+    /**
+     * 构造函数
+     * @constructs VideoFetcher
+     * @description 初始化插件配置和视频链接列表
+     */
     constructor() {
         super({
             name: "Video",
@@ -39960,18 +39985,48 @@ export class VideoFetcher extends plugin {
         ];
     }
 
+    /**
+     * 获取撤回配置文件
+     * @method getRecallConfig
+     * @description 读取YAML格式的撤回配置文件
+     * @returns {Object} 配置对象，包含撤回开关和撤回时间
+     * @throws {Error} 当文件读取失败或YAML解析失败时抛出错误
+     * 
+     * @example
+     * // 配置文件示例 (recall.yaml):
+     * // recall: true
+     * // time: 60000
+     */
     getRecallConfig() {
         const configPath = "./plugins/sp-plugin/config/recall.yaml";
         const fileContents = fs.readFileSync(configPath, "utf8");
         return YAML.parse(fileContents);
     }
 
-    // 随机选择一个视频链接
+    /**
+     * 随机选择视频链接
+     * @method getRandomVideoUrl
+     * @description 从视频链接列表中随机选择一个链接
+     * @returns {string} 随机选择的视频链接
+     * @throws {Error} 当视频链接列表为空时可能产生未定义行为
+     */
     getRandomVideoUrl() {
         const index = Math.floor(Math.random() * this.videoUrls.length);
         return this.videoUrls[index];
     }
 
+    /**
+     * 下载视频文件
+     * @method fetchVideo
+     * @description 使用axios下载视频到指定路径
+     * @param {string} videoUrl - 视频的URL地址
+     * @param {string} outputPath - 视频保存的本地路径
+     * @returns {Promise<void>} 下载完成时解析的Promise
+     * @throws {Error} 当下载失败时抛出错误
+     * 
+     * @example
+     * await fetchVideo("https://example.com/video.mp4", "./temp/video.mp4");
+     */
     async fetchVideo(videoUrl, outputPath) {
         try {
             const response = await axios.get(videoUrl, { responseType: "stream" });
@@ -39988,6 +40043,15 @@ export class VideoFetcher extends plugin {
         }
     }
 
+    /**
+     * 删除临时文件
+     * @method deleteTempFile
+     * @description 删除指定的临时文件，忽略删除失败的错误
+     * @param {string} filePath - 要删除的文件路径
+     * 
+     * @example
+     * deleteTempFile("./temp/video.mp4");
+     */
     deleteTempFile(filePath) {
         try {
             fs.unlinkSync(filePath);
@@ -39996,6 +40060,23 @@ export class VideoFetcher extends plugin {
         }
     }
 
+    /**
+     * 处理视频请求的主要方法
+     * @method _processVideo
+     * @description 处理用户触发的视频请求命令
+     * @param {Object} e - 消息事件对象
+     * @returns {Promise<void>}
+     * 
+     * 处理流程：
+     * 1. 随机选择视频链接
+     * 2. 创建临时目录（如果不存在）
+     * 3. 下载视频到临时文件
+     * 4. 发送视频消息
+     * 5. 根据配置自动撤回消息
+     * 6. 清理临时文件
+     * 
+     * @throws {Error} 当视频下载或发送失败时记录错误并回复失败消息
+     */
     async _processVideo(e) {
         const videoUrl = this.getRandomVideoUrl(); // 随机获取一个视频链接
         const tempDir = path.resolve("./temp");
