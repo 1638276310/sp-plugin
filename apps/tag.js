@@ -231,11 +231,11 @@ export class SetuImageFetcher extends plugin {
         if (validImageMessages.length > 0) {
             const recallConfig = this.getRecallConfig();
 
-            // 按10个消息一组进行分组
-            const groupSize = 10;
+            // 按5个消息一组进行分组
+            const groupSize = 5;
             const messageGroups = [];
 
-            // 将消息分组，每组最多10个
+            // 将消息分组，每组最多5个
             for (let i = 0; i < validImageMessages.length; i += groupSize) {
                 const group = validImageMessages.slice(i, i + groupSize);
                 messageGroups.push(group);
@@ -264,7 +264,7 @@ export class SetuImageFetcher extends plugin {
 
                 // 如果有多组，等待一段时间再发送下一组（避免发送过快）
                 if (i < messageGroups.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 3000));
                 }
             }
         }
