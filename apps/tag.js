@@ -173,7 +173,7 @@ export class SetuImageFetcher extends plugin {
                                         rejectUnauthorized: false
                                     })
                                 });
-                                return imageDataResponse.data;
+                                return { data: imageDataResponse.data, url: imageUrl };
                             } catch (error) {
                                 // 图片下载也尝试HTTP回退
                                 try {
@@ -183,7 +183,7 @@ export class SetuImageFetcher extends plugin {
                                         maxContentLength: Infinity,
                                         maxBodyLength: Infinity,
                                     });
-                                    return imageDataResponse.data;
+                                    return { data: imageDataResponse.data, url: imageUrl };
                                 } catch (httpError) {
                                     console.error(`图片下载失败: ${imageUrl}`, httpError.message);
                                     return null;
@@ -192,14 +192,14 @@ export class SetuImageFetcher extends plugin {
                         })
                     );
 
-                    const validImageDatas = imageDatas.filter((data) => data !== null);
+                    const validImageDatas = imageDatas.filter((item) => item !== null);
 
                     const modifiedImagePaths = await Promise.all(
-                        validImageDatas.map(async (imageData, i) => {
+                        validImageDatas.map(async (item, i) => {
                             const imagePath = `./plugins/sp-plugin/temp/temp_image_${index}_${i}.jpg`;
-                            fs.writeFileSync(imagePath, imageData);
+                            fs.writeFileSync(imagePath, item.data);
                             const modifiedImagePath = await modifyImageSharp(imagePath);
-                            return modifiedImagePath;
+                            return { path: modifiedImagePath, url: item.url };
                         })
                     );
 
@@ -213,7 +213,10 @@ export class SetuImageFetcher extends plugin {
                         `😊：${details.body.bookmarkCount}\n`,
                         `👁：${details.body.viewCount}\n`,
                         `tag：${tagList.join(", ")}\n`,
-                        ...modifiedImagePaths.map((imagePath) => segment.image(imagePath)),
+                        ...modifiedImagePaths.flatMap((item, i) => [
+                            segment.image(item.path),
+                            `图片${i + 1} URL：${item.url}\n`
+                        ]),
                     ];
 
                     return {
