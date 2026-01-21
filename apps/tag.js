@@ -5,6 +5,8 @@ import https from "https";
 import { pid, tag as fetchTag } from "../config/api.js";
 import { modifyImageSharp } from "../lib/sharp-pixel.js";
 
+const sp_plugin_path = process.cwd() + "/plugins/sp-plugin/";
+
 /**
  * SetuImageFetcher类
  * 通过tag搜索Pixiv图片并发送
@@ -19,7 +21,7 @@ export class SetuImageFetcher extends plugin {
      */
     constructor() {
         super({
-            name: "Setu Image Fetch",
+            name: "通过tag搜索图片",
             dsc: "通过tag搜索图",
             event: "message",
             priority: -Infinity,
@@ -38,8 +40,8 @@ export class SetuImageFetcher extends plugin {
      * @returns {Object} 撤回配置对象
      */
     getRecallConfig() {
-        const path = "./plugins/sp-plugin/config/recall.yaml";
-        const fileContents = fs.readFileSync(path, "utf8");
+        const recall_path = sp_plugin_path + "config/recall.yaml";
+        const fileContents = fs.readFileSync(recall_path, "utf8");
         return YAML.parse(fileContents);
     }
 
@@ -53,7 +55,6 @@ export class SetuImageFetcher extends plugin {
     async fetchPixivImageDetails(pidValue) {
         const apiUrl = pid(pidValue);
         try {
-            // 添加忽略SSL证书验证的配置
             const response = await axios.get(apiUrl, {
                 httpsAgent: new https.Agent({
                     rejectUnauthorized: false
@@ -61,7 +62,6 @@ export class SetuImageFetcher extends plugin {
             });
             return response.data;
         } catch (error) {
-            // 如果HTTPS失败，尝试使用HTTP
             try {
                 const httpUrl = apiUrl.replace('https://', 'http://');
                 const response = await axios.get(httpUrl);
@@ -87,7 +87,6 @@ export class SetuImageFetcher extends plugin {
         const apiUrl = `${fetchTag(tagValue)}&mode=${mode}&order=${order}`;
 
         try {
-            // 添加忽略SSL证书验证的配置
             const response = await axios.get(apiUrl, {
                 httpsAgent: new https.Agent({
                     rejectUnauthorized: false
@@ -95,7 +94,6 @@ export class SetuImageFetcher extends plugin {
             });
             return response.data.body.data.map((item) => item.id);
         } catch (error) {
-            // 如果HTTPS失败，尝试使用HTTP
             const httpUrl = apiUrl.replace('https://', 'http://');
             try {
                 const response = await axios.get(httpUrl);
@@ -120,6 +118,144 @@ export class SetuImageFetcher extends plugin {
     }
 
     /**
+     * 处理单个图片的下载和处理
+     * @async
+     * @param {string} imageUrl - 图片URL
+     * @param {number} index - 图片索引
+     * @param {number} subIndex - 子图片索引
+     * @returns {Promise<Object|null>} 处理后的图片信息
+     */
+    async processSingleImage(imageUrl, index, subIndex) {
+        try {
+            const imageDataResponse = await axios.get(imageUrl, {
+                responseType: "arraybuffer",
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+                httpsAgent: new https.Agent({
+                    rejectUnauthorized: false
+                })
+            });
+
+            const imagePath = sp_plugin_path + `temp/temp_image_${index}_${subIndex}.jpg`;
+            fs.writeFileSync(imagePath, imageDataResponse.data);
+
+            const modifiedImagePath = await modifyImageSharp(imagePath);
+
+            return { path: modifiedImagePath, url: imageUrl };
+        } catch (error) {
+            try {
+                const httpUrl = imageUrl.replace('https://', 'http://');
+                const imageDataResponse = await axios.get(httpUrl, {
+                    responseType: "arraybuffer",
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
+                });
+
+                const imagePath = sp_plugin_path + `temp/temp_image_${index}_${subIndex}.jpg`;
+                fs.writeFileSync(imagePath, imageDataResponse.data);
+
+                const modifiedImagePath = await modifyImageSharp(imagePath);
+
+                return { path: modifiedImagePath, url: imageUrl };
+            } catch (httpError) {
+                console.error(`图片下载失败: ${imageUrl}`, httpError.message);
+                return null;
+            }
+        }
+    }
+
+    /**
+     * 处理PID的所有图片
+     * @async
+     * @param {Object} details - 图片详情
+     * @param {number} index - 索引
+     * @param {Object} e - 事件对象
+     * @returns {Promise<Object|null>} 消息数据
+     */
+    async processPidImages(details, index, e) {
+        if (!details || !details.body) return null;
+
+        const imageUrls = Object.values(details.body.urls).map((url) => `${url}`);
+        const tagList = details.body.tags.tags.map((tagObj) => tagObj.tag);
+
+        // 限制单张PID的图片数量，最多处理3张
+        const maxImagesPerPid = 5;
+        const urlsToProcess = imageUrls.slice(0, maxImagesPerPid);
+
+        // 串行处理图片，最多同时处理2张
+        const modifiedImagePaths = [];
+        for (let i = 0; i < urlsToProcess.length; i++) {
+            const result = await this.processSingleImage(urlsToProcess[i], index, i);
+            if (result) {
+                modifiedImagePaths.push(result);
+            }
+
+            // 如果还有下一张图片，等待一小段时间再处理
+            if (i < urlsToProcess.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        if (modifiedImagePaths.length === 0) return null;
+
+        const msgData = [
+            `id：${details.body.illustId}\n`,
+            `画师：${details.body.userName}（${details.body.userId}）\n`,
+            `是否ai：${details.body.aiType === 2 ? "是" : "否"}\n`,
+            `标题：${details.body.illustTitle}\n`,
+            `上传时间：${details.body.createDate}\n`,
+            `♥：${details.body.likeCount}\n`,
+            `😊：${details.body.bookmarkCount}\n`,
+            `👁：${details.body.viewCount}\n`,
+            `tag：${tagList.join(", ")}\n`,
+        ];
+
+        // 添加图片和URL
+        modifiedImagePaths.forEach((item, i) => {
+            msgData.push(segment.image(item.path));
+            msgData.push(`图片${i + 1} URL：${item.url}\n`);
+        });
+
+        return {
+            message: msgData,
+            nickname: e.user_id.toString(),
+            user_id: e.user_id,
+        };
+    }
+
+    /**
+     * 处理一组PID（最多10个）
+     * @async
+     * @param {Array} pids - PID数组
+     * @param {Object} e - 事件对象
+     * @param {number} groupIndex - 组索引
+     * @returns {Promise<Array>} 消息数组
+     */
+    async processPidGroup(pids, e, groupIndex) {
+        const messages = [];
+
+        // 串行处理每个PID，最多同时处理2个PID
+        for (let i = 0; i < pids.length; i++) {
+            const pidValue = pids[i];
+            const details = await this.fetchPixivImageDetails(pidValue);
+
+            if (details) {
+                const msg = await this.processPidImages(details, groupIndex * 10 + i, e);
+                if (msg) {
+                    messages.push(msg);
+                }
+            }
+
+            // 如果还有下一个PID，等待一小段时间再处理
+            if (i < pids.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        return messages;
+    }
+
+    /**
      * 处理色图图片请求
      * 主处理函数，根据tag和数量获取并发送图片
      * @async
@@ -132,7 +268,7 @@ export class SetuImageFetcher extends plugin {
         );
         const num = parseInt(numStr);
 
-        if (num > 20) {
+        if (num > 60) {
             await e.reply("你想冲死吗？");
             return;
         }
@@ -144,114 +280,44 @@ export class SetuImageFetcher extends plugin {
         }
 
         const selectedPids = this.getRandomIds(idsList, num);
-        const detailsPromises = selectedPids.map((pid) =>
-            this.fetchPixivImageDetails(pid)
-        );
-        const detailsList = await Promise.all(detailsPromises);
-        await e.reply("图片获取完毕，正在发送中...", false, {
+
+        // 清理临时文件夹
+        try {
+            const tempDir = sp_plugin_path + "temp/";
+            if (fs.existsSync(tempDir)) {
+                const files = fs.readdirSync(tempDir);
+                for (const file of files) {
+                    if (file.startsWith("temp_image_")) {
+                        fs.unlinkSync(tempDir + file);
+                    }
+                }
+            }
+        } catch (cleanError) {
+            console.error("清理临时文件失败:", cleanError.message);
+        }
+
+        await e.reply(`找到${selectedPids.length}张图片，开始处理...`, false, {
             at: true,
-            recallMsg: 60,
+            recallMsg: 10,
         });
 
-        const imageMessages = await Promise.all(
-            detailsList.map(async (details, index) => {
-                if (details && details.body) {
-                    const imageUrls = Object.values(details.body.urls).map(
-                        (url) => `${url}`
-                    );
-                    const tagList = details.body.tags.tags.map((tagObj) => tagObj.tag);
+        // 按10个一组分组处理
+        const groupSize = 10;
+        const recallConfig = this.getRecallConfig();
 
-                    const imageDatas = await Promise.all(
-                        imageUrls.map(async (imageUrl) => {
-                            try {
-                                // 图片下载也添加SSL忽略
-                                const imageDataResponse = await axios.get(imageUrl, {
-                                    responseType: "arraybuffer",
-                                    maxContentLength: Infinity,
-                                    maxBodyLength: Infinity,
-                                    httpsAgent: new https.Agent({
-                                        rejectUnauthorized: false
-                                    })
-                                });
-                                return { data: imageDataResponse.data, url: imageUrl };
-                            } catch (error) {
-                                // 图片下载也尝试HTTP回退
-                                try {
-                                    const httpUrl = imageUrl.replace('https://', 'http://');
-                                    const imageDataResponse = await axios.get(httpUrl, {
-                                        responseType: "arraybuffer",
-                                        maxContentLength: Infinity,
-                                        maxBodyLength: Infinity,
-                                    });
-                                    return { data: imageDataResponse.data, url: imageUrl };
-                                } catch (httpError) {
-                                    console.error(`图片下载失败: ${imageUrl}`, httpError.message);
-                                    return null;
-                                }
-                            }
-                        })
-                    );
+        for (let groupIndex = 0; groupIndex < selectedPids.length; groupIndex += groupSize) {
+            const endIndex = Math.min(groupIndex + groupSize, selectedPids.length);
+            const groupPids = selectedPids.slice(groupIndex, endIndex);
 
-                    const validImageDatas = imageDatas.filter((item) => item !== null);
+            console.log(`处理第${Math.floor(groupIndex / groupSize) + 1}组，共${groupPids.length}个PID`);
 
-                    const modifiedImagePaths = await Promise.all(
-                        validImageDatas.map(async (item, i) => {
-                            const imagePath = `./plugins/sp-plugin/temp/temp_image_${index}_${i}.jpg`;
-                            fs.writeFileSync(imagePath, item.data);
-                            const modifiedImagePath = await modifyImageSharp(imagePath);
-                            return { path: modifiedImagePath, url: item.url };
-                        })
-                    );
+            const groupMessages = await this.processPidGroup(groupPids, e, Math.floor(groupIndex / groupSize));
 
-                    const msgData = [
-                        `id：${details.body.illustId}\n`,
-                        `画师：${details.body.userName}（${details.body.userId}）\n`,
-                        `是否ai：${details.body.aiType === 2 ? "是" : "否"}\n`,
-                        `标题：${details.body.illustTitle}\n`,
-                        `上传时间：${details.body.createDate}\n`,
-                        `♥：${details.body.likeCount}\n`,
-                        `😊：${details.body.bookmarkCount}\n`,
-                        `👁：${details.body.viewCount}\n`,
-                        `tag：${tagList.join(", ")}\n`,
-                        ...modifiedImagePaths.flatMap((item, i) => [
-                            segment.image(item.path),
-                            `图片${i + 1} URL：${item.url}\n`
-                        ]),
-                    ];
-
-                    return {
-                        message: msgData,
-                        nickname: e.user_id.toString(),
-                        user_id: e.user_id,
-                    };
-                }
-                return null;
-            })
-        );
-
-        const validImageMessages = imageMessages.filter((msg) => msg !== null);
-
-        if (validImageMessages.length > 0) {
-            const recallConfig = this.getRecallConfig();
-
-            // 按5个消息一组进行分组
-            const groupSize = 5;
-            const messageGroups = [];
-
-            // 将消息分组，每组最多5个
-            for (let i = 0; i < validImageMessages.length; i += groupSize) {
-                const group = validImageMessages.slice(i, i + groupSize);
-                messageGroups.push(group);
-            }
-
-            // 发送每组转发消息
-            for (let i = 0; i < messageGroups.length; i++) {
-                const group = messageGroups[i];
-
+            if (groupMessages.length > 0) {
                 // 构建转发消息
                 const forwardMsg = e.isGroup
-                    ? await e.group.makeForwardMsg(group)
-                    : await e.friend.makeForwardMsg(group);
+                    ? await e.group.makeForwardMsg(groupMessages)
+                    : await e.friend.makeForwardMsg(groupMessages);
 
                 // 发送转发消息
                 const sentMessage = await e.reply(forwardMsg);
@@ -265,11 +331,19 @@ export class SetuImageFetcher extends plugin {
                     }, recallConfig.time);
                 }
 
-                // 如果有多组，等待一段时间再发送下一组（避免发送过快）
-                if (i < messageGroups.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                // 如果不是最后一组，等待一段时间再处理下一组
+                if (endIndex < selectedPids.length) {
+                    await e.reply(`正在处理下一组图片...`, false, {
+                        recallMsg: 5,
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
         }
+
+        await e.reply("所有图片发送完毕！", false, {
+            at: true,
+            recallMsg: 10,
+        });
     }
 }
