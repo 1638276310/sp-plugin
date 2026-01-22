@@ -314,21 +314,100 @@ export class SetuImageFetcher extends plugin {
             const groupMessages = await this.processPidGroup(groupPids, e, Math.floor(groupIndex / groupSize));
 
             if (groupMessages.length > 0) {
-                // 构建转发消息
-                const forwardMsg = e.isGroup
-                    ? await e.group.makeForwardMsg(groupMessages)
-                    : await e.friend.makeForwardMsg(groupMessages);
+                // 处理NapCat.Onebot的特殊转发格式
+                if (e.bot?.version?.app_name === "NapCat.Onebot") {
+                    const nodes = groupMessages.map((msg) => {
+                        const content = [];
+                        let msgArray = [];
 
-                // 发送转发消息
-                const sentMessage = await e.reply(forwardMsg);
+                        // 处理不同类型的消息内容
+                        if (Array.isArray(msg.message)) {
+                            msgArray = msg.message;
+                        } else if (typeof msg.message === "string") {
+                            msgArray = [msg.message];
+                        } else {
+                            msgArray = [msg.message];
+                        }
 
-                // 设置撤回
-                if (recallConfig.recall) {
-                    setTimeout(() => {
-                        e.isGroup
-                            ? e.group.recallMsg(sentMessage.message_id)
-                            : e.friend.recallMsg(sentMessage.message_id);
-                    }, recallConfig.time);
+                        // 构建消息节点
+                        for (const item of msgArray) {
+                            if (typeof item === "string") {
+                                content.push({
+                                    type: "text",
+                                    data: { text: item },
+                                });
+                            } else if (item?.type === "image") {
+                                // 安全获取图片URL
+                                const fileUrl = item.data?.file || item.data?.url || item.file || "";
+                                if (fileUrl) {
+                                    content.push({
+                                        type: "image",
+                                        data: { file: fileUrl },
+                                    });
+                                } else {
+                                    console.error("图片URL解析失败:", item);
+                                    content.push({
+                                        type: "text",
+                                        data: { text: "[图片解析失败]" },
+                                    });
+                                }
+                            } else {
+                                content.push({
+                                    type: "text",
+                                    data: { text: "不支持的消息类型" },
+                                });
+                            }
+                        }
+
+                        return {
+                            type: "node",
+                            data: {
+                                nickname: msg.nickname,
+                                user_id: msg.user_id,
+                                content: content,
+                            },
+                        };
+                    });
+
+                    // 构建请求体 - 添加固定信息
+                    const requestBody = {
+                        group_id: e.group_id,
+                        user_id: e.user_id,
+                        messages: nodes,
+                        news: [{ text: "QQ/VX：1638276310" }],
+                        prompt: "QQ/VX：1638276310",
+                        summary: "QQ/VX：1638276310",
+                        source: "QQ/VX：1638276310",
+                    };
+
+                    try {
+                        // 根据消息类型发送
+                        if (e.isGroup) {
+                            await e.bot.sendApi("send_group_forward_msg", requestBody);
+                        } else {
+                            await e.bot.sendApi("send_private_forward_msg", requestBody);
+                        }
+                    } catch (error) {
+                        console.error("NapCat转发消息失败:", error);
+                        await e.reply("消息发送失败，请稍后再试", true);
+                    }
+                } else {
+                    // 标准转发消息处理
+                    const forwardMsg = e.isGroup
+                        ? await e.group.makeForwardMsg(groupMessages)
+                        : await e.friend.makeForwardMsg(groupMessages);
+
+                    // 发送转发消息
+                    const sentMessage = await e.reply(forwardMsg);
+
+                    // 设置撤回
+                    if (recallConfig.recall) {
+                        setTimeout(() => {
+                            e.isGroup
+                                ? e.group.recallMsg(sentMessage.message_id)
+                                : e.friend.recallMsg(sentMessage.message_id);
+                        }, recallConfig.time);
+                    }
                 }
 
                 // 如果不是最后一组，等待一段时间再处理下一组
