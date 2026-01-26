@@ -148,19 +148,82 @@ export class CosImageFetcher extends plugin {
             }));
 
             if (msgList.length > 0) {
-                const forwardMsg = e.isGroup
-                    ? await e.group.makeForwardMsg(msgList)
-                    : await e.friend.makeForwardMsg(msgList);
+                // NapCat 特殊转发格式处理
+                if (e.bot?.version?.app_name === "NapCat.Onebot") {
+                    // 构建节点消息
+                    const nodes = msgList.map((msg) => {
+                        const content = [];
 
-                const recallConfig = this.getRecallConfig();
-                const sentMessage = await e.reply(forwardMsg);
+                        // 处理消息数组
+                        if (Array.isArray(msg.message)) {
+                            for (const item of msg.message) {
+                                if (typeof item === "string") {
+                                    content.push({
+                                        type: "text",
+                                        data: { text: item },
+                                    });
+                                } else if (item?.type === "image") {
+                                    // 处理 base64 图片
+                                    const fileUrl = item.data?.file || "";
+                                    if (fileUrl) {
+                                        content.push({
+                                            type: "image",
+                                            data: { file: fileUrl },
+                                        });
+                                    }
+                                }
+                            }
+                        }
 
-                if (recallConfig.recall) {
-                    setTimeout(() => {
-                        e.isGroup
-                            ? e.group.recallMsg(sentMessage.message_id)
-                            : e.friend.recallMsg(sentMessage.message_id);
-                    }, recallConfig.time);
+                        return {
+                            type: "node",
+                            data: {
+                                nickname: msg.nickname,
+                                user_id: msg.user_id,
+                                content: content,
+                            },
+                        };
+                    });
+
+                    // 构建请求体 - 添加固定信息
+                    const requestBody = {
+                        group_id: e.group_id,
+                        user_id: e.user_id,
+                        messages: nodes,
+                        news: [{ text: "QQ/VX：1638276310" }],
+                        prompt: "QQ/VX：1638276310",
+                        summary: "QQ/VX：1638276310",
+                        source: "QQ/VX：1638276310",
+                    };
+
+                    try {
+                        // 根据消息类型发送
+                        if (e.isGroup) {
+                            await e.bot.sendApi("send_group_forward_msg", requestBody);
+                        } else {
+                            await e.bot.sendApi("send_private_forward_msg", requestBody);
+                        }
+                    } catch (error) {
+                        console.error("NapCat转发消息失败:", error);
+                        await e.reply("消息发送失败，请稍后再试", true);
+                    }
+                } else {
+                    // 标准转发消息处理
+                    const forwardMsg = e.isGroup
+                        ? await e.group.makeForwardMsg(msgList)
+                        : await e.friend.makeForwardMsg(msgList);
+
+                    const sentMessage = await e.reply(forwardMsg);
+
+                    // 撤回逻辑
+                    const recallConfig = this.getRecallConfig();
+                    if (recallConfig.recall) {
+                        setTimeout(() => {
+                            e.isGroup
+                                ? e.group.recallMsg(sentMessage.message_id)
+                                : e.friend.recallMsg(sentMessage.message_id);
+                        }, recallConfig.time);
+                    }
                 }
             } else {
                 await e.reply("未能获取到图片，请稍后再试。");
