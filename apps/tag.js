@@ -412,9 +412,9 @@ export class SetuImageFetcher extends plugin {
 
                 // 如果不是最后一组，等待一段时间再处理下一组
                 if (endIndex < selectedPids.length) {
-                    await e.reply(`正在处理下一组图片...`, false, {
-                        recallMsg: 5,
-                    });
+                    // await e.reply(`正在处理下一组图片...`, false, {
+                    //     recallMsg: 5,
+                    // });
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
