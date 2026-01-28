@@ -215,8 +215,8 @@ export class MagnetLinkFetcher extends plugin {
                     `文件大小：${(response.size / 1e9).toFixed(1)}GB\n`,
                 ];
 
-                // 构建转发消息，只包含基本信息
-                const msgList = [
+                // 构建消息列表
+                const messages = [
                     {
                         message: msgData.join(""),
                         nickname: e.user_id.toString(),
@@ -224,7 +224,7 @@ export class MagnetLinkFetcher extends plugin {
                     },
                 ];
 
-                // 只有在有截图数据时才处理和添加截图
+                // 处理截图
                 if (response.screenshots?.length > 0) {
                     const processingPromises = response.screenshots
                         .slice(0, 9)
@@ -248,10 +248,10 @@ export class MagnetLinkFetcher extends plugin {
                         Boolean
                     );
 
-                    // 只有成功获取的截图才添加到转发消息
+                    // 添加截图到消息列表
                     if (screenshotData.length > 0) {
                         screenshotData.forEach((screenshot, index) => {
-                            msgList.push({
+                            messages.push({
                                 message: [`截图 ${index + 1}`, "\n", segment.image(screenshot)],
                                 nickname: e.user_id.toString(),
                                 user_id: e.user_id,
@@ -260,19 +260,106 @@ export class MagnetLinkFetcher extends plugin {
                     }
                 }
 
-                const forwardMsg = e.isGroup
-                    ? await e.group.makeForwardMsg(msgList)
-                    : await e.friend.makeForwardMsg(msgList);
+                // 处理NapCat.Onebot的特殊转发格式
+                if (e.bot?.version?.app_name === "NapCat.Onebot") {
+                    const nodes = messages.map((msg) => {
+                        const content = [];
+                        let msgArray = [];
 
-                const recallConfig = this.getRecallConfig();
-                const sentMessage = await e.reply(forwardMsg);
+                        // 处理不同类型的消息内容
+                        if (Array.isArray(msg.message)) {
+                            msgArray = msg.message;
+                        } else if (typeof msg.message === "string") {
+                            msgArray = [msg.message];
+                        } else {
+                            msgArray = [msg.message];
+                        }
 
-                if (recallConfig.recall) {
-                    setTimeout(() => {
-                        e.isGroup
-                            ? e.group.recallMsg(sentMessage.message_id)
-                            : e.friend.recallMsg(sentMessage.message_id);
-                    }, recallConfig.time).unref();
+                        // 构建消息节点
+                        for (const item of msgArray) {
+                            if (typeof item === "string") {
+                                content.push({
+                                    type: "text",
+                                    data: { text: item },
+                                });
+                            } else if (item?.type === "image") {
+                                // 安全获取图片URL或base64
+                                const fileUrl =
+                                    item.data?.file || item.data?.url || item.file || "";
+                                if (fileUrl) {
+                                    content.push({
+                                        type: "image",
+                                        data: { file: fileUrl },
+                                    });
+                                } else {
+                                    logger.error("图片URL解析失败:", item);
+                                    content.push({
+                                        type: "text",
+                                        data: { text: "[图片解析失败]" },
+                                    });
+                                }
+                            } else {
+                                content.push({
+                                    type: "text",
+                                    data: { text: "不支持的消息类型" },
+                                });
+                            }
+                        }
+
+                        return {
+                            type: "node",
+                            data: {
+                                nickname: msg.nickname,
+                                user_id: msg.user_id,
+                                content: content,
+                            },
+                        };
+                    });
+
+                    // 构建请求体
+                    const requestBody = {
+                        messages: nodes,
+                    };
+
+                    // 根据消息类型添加参数
+                    if (e.isGroup) {
+                        requestBody.group_id = e.group_id;
+                    } else {
+                        requestBody.user_id = e.user_id;
+                    }
+
+                    try {
+                        // 根据消息类型发送
+                        if (e.isGroup) {
+                            await e.bot.sendApi("send_group_forward_msg", requestBody);
+                        } else {
+                            await e.bot.sendApi("send_private_forward_msg", requestBody);
+                        }
+                    } catch (error) {
+                        logger.error("NapCat转发消息失败:", error);
+                        await e.reply("消息发送失败，请稍后再试", true);
+                    }
+                } else {
+                    // 标准转发消息处理
+                    try {
+                        const forwardMsg = e.isGroup
+                            ? await e.group.makeForwardMsg(messages)
+                            : await e.friend.makeForwardMsg(messages);
+
+                        const recallConfig = this.getRecallConfig();
+                        const sentMessage = await e.reply(forwardMsg);
+
+                        if (recallConfig.recall) {
+                            setTimeout(() => {
+                                e.isGroup
+                                    ? e.group.recallMsg(sentMessage.message_id)
+                                    : e.friend.recallMsg(sentMessage.message_id);
+                            }, recallConfig.time).unref();
+                        }
+                    } catch (error) {
+                        logger.error("创建转发消息失败:", error);
+                        await e.reply("消息发送失败，请稍后再试", true);
+                    }
                 }
 
                 return;
