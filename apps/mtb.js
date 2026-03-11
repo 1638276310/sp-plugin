@@ -31,13 +31,13 @@ const DOWNLOAD_TIMEOUT = 15000;
 const BATCH_SIZE = 20;
 
 /**
- * 图片吧 (ku1373) 套图提取插件
+ * 图片吧 (ku1373) 套图提取插件（单线程版，采集逻辑与 Python 脚本一致）
  * @class ku1373Plugin
  */
 export class ku1373Plugin extends plugin {
   constructor() {
     super({
-      name: "1373美图吧套图提取插件",
+      name: "图片吧套图提取插件",
       dsc: "从图片吧网站提取套图图片，支持单线程采集与增量更新",
       event: "message",
       priority: -Infinity,
@@ -386,7 +386,7 @@ export class ku1373Plugin extends plugin {
               .filter((src) => src && src.startsWith("http")),
         );
         for (const imgUrl of pageImages) imageUrls.add(imgUrl);
-        if (imageUrls.size >= 100) break;
+        // if (imageUrls.size >= 100) break; // 仍保留100张上限（可自行调整）
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
       await browser.close();
@@ -397,17 +397,14 @@ export class ku1373Plugin extends plugin {
         return;
       }
 
-      // ----- 下载图片并转换为 Base64（携带 Referer）-----
-      const totalFound = uniqueImageUrls.length;
-      const displayCount = Math.min(totalFound, 100);
+      // ----- 下载所有图片并转换为 Base64（携带 Referer）-----
       await e.reply(
-        `共找到 ${totalFound} 张图片，正在下载前 ${displayCount} 张...`,
+        `共找到 ${uniqueImageUrls.length} 张图片，正在下载...`,
         false,
         { at: true, recallMsg: 30 },
       );
-      const imagesToProcess = uniqueImageUrls.slice(0, 100);
       const downloadResults = await this.downloadImagesBatch(
-        imagesToProcess,
+        uniqueImageUrls,
         url,
       );
 
@@ -452,16 +449,6 @@ export class ku1373Plugin extends plugin {
         },
       ];
 
-      // 如果总图片数超过100，添加一个提示消息
-      let summaryMessage = null;
-      if (totalFound > 100) {
-        summaryMessage = {
-          message: `... 等共 ${totalFound} 张图片（仅显示前100张）`,
-          nickname: e.user_id.toString(),
-          user_id: e.user_id,
-        };
-      }
-
       // 将图片消息分批
       const batches = [];
       for (let i = 0; i < imageMessages.length; i += BATCH_SIZE) {
@@ -482,10 +469,6 @@ export class ku1373Plugin extends plugin {
             user_id: e.user_id,
           };
           batchMessages = [tip, ...batches[i]];
-        }
-        // 如果是最后一批且有 summaryMessage，则追加到末尾
-        if (i === batches.length - 1 && summaryMessage) {
-          batchMessages.push(summaryMessage);
         }
         await this.sendForward(batchMessages, e);
         // 批次间延迟，避免请求过快
