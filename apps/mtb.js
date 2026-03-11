@@ -132,7 +132,8 @@ export class ku1373Plugin extends plugin {
 
     const randomUrl =
       this.jgUrls[Math.floor(Math.random() * this.jgUrls.length)];
-    await e.reply(`正在随机抽取一套美图，URL: ${randomUrl}，请稍等...`, false, {
+    // await e.reply(`正在随机抽取一套美图，URL: ${randomUrl}，请稍等...`, false, {
+    await e.reply(`正在随机抽取一套美图，请稍等...`, false, {
       at: true,
     });
     await this.processArticleRequest(e, randomUrl, true);
