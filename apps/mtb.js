@@ -51,7 +51,7 @@ export class ku1373Plugin extends plugin {
           fnc: "fullUpdate",
         },
         {
-          reg: "^#?随机美图吧$",
+          reg: "^#?随机美图$",
           fnc: "randomArticleRequest",
         },
         {
