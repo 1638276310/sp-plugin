@@ -37,6 +37,12 @@ export class sphelp extends plugin {
     async sp_help_text(e) {
         let helpText = "【涩批(sp)插件文字帮助】\n\n";
 
+        helpText += "【1373美图吧】\n";
+        helpText += "· #随机美图吧 - 从已保存的套图列表中随机选取一个，自动解析并发送该套图的所有图片（最多前 100 张，支持 Base64 防盗链）。\n";
+        helpText += ". #套图详情 <URL> - 解析指定套图链接并发送该套图的所有图片（最多前 100 张，支持 Base64 防盗链，后续会改进）。\n";
+        helpText += "· #更新套图列表 - 增量更新套图列表（仅主人可用）\n";
+        helpText += "· #全量更新套图列表 - 从第 1 页到最后一页，顺序采集所有套图链接（仅主人可用），覆盖原有列表。\n\n";
+
         helpText += "【网址获取】\n";
         helpText += "· #写真网址 - 获取写真网站网址\n";
         helpText += "· #福利网址 - 获取福利网站网址\n";
@@ -45,7 +51,6 @@ export class sphelp extends plugin {
         helpText += "· #福利App - 获取福利App下载链接\n";
         helpText += "· #TG电报 - 获取TG电报频道链接\n\n";
 
-        // 在【妹子图】部分添加：
         helpText += "【妹子图】\n";
         helpText += "· #写真馆+ID - 获取妹子图图片\n";
         helpText += "· #随机写真 - 随机获取妹子图\n";
