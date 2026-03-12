@@ -443,11 +443,11 @@ export class ku1373Plugin extends plugin {
           nickname: e.user_id.toString(),
           user_id: e.user_id,
         },
-        {
-          message: `🔗 原链接: ${url}`,
-          nickname: e.user_id.toString(),
-          user_id: e.user_id,
-        },
+        // {
+        //   message: `🔗 原链接: ${url}`,
+        //   nickname: e.user_id.toString(),
+        //   user_id: e.user_id,
+        // },
       ];
 
       // 将图片消息分批
