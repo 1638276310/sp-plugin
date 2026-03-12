@@ -135,6 +135,7 @@ export class ku1373Plugin extends plugin {
     // await e.reply(`正在随机抽取一套美图，URL: ${randomUrl}，请稍等...`, false, {
     await e.reply(`正在随机抽取一套美图，请稍等...`, false, {
       at: true,
+      recallMsg: 30,
     });
     await this.processArticleRequest(e, randomUrl, true);
   }
