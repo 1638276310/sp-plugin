@@ -181,7 +181,7 @@ export class MagnetLink extends plugin {
                     continue;
                 }
             } catch (error) {
-                logger.log(`在URL ${urls[i]} 上出现错误：${error.toString()}`);
+                console.log(`在URL ${urls[i]} 上出现错误：${error.toString()}`);
                 if (page) await page.close();
                 continue;
             }
