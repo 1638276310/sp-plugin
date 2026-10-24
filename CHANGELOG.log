@@ -4,6 +4,12 @@ CHANGELOG
 修复妹子图 Cloudflare 403：统一 Chrome UA 与请求头、文章页 Cookie 复用、mzt_proxy 代理（接口+图片+浏览器）、浏览器反自动化与挑战等待、APP/网页/浏览器/首图多级降级、结构化 stage 错误与脱敏日志、403/429/5xx 单次重试与同 ID 3s 限速
 新增
 新增 tools/mzt_diag.js 独立诊断脚本；新增 mzt_proxy/mzt_ua/mzt_cf_wait/mzt_app_cert 配置
+重构
+重构妹子图抓取链路（与 AstrBot 版对齐）：移除网页/浏览器/首图兜底与列表页直连，统一为“指令 ID → 美之图 APP 接口（mTLS）→ 内置解密 → 按解密 URL 下载”；新增多 ID 逐个处理；#更新写真ID 停用，ID 列表改为本地 mztids.json 导入
+删除
+删除 mzt_browser_fallback/mzt_ua/mzt_cf_wait 配置与自动增量更新写真ID 定时任务
+新增
+新增 tools/selftest_mzt_chain.js 离线自检与 tools/fixtures/app_post_172250.json 密文 fixture；mzt_diag.js 改为 APP 接口/证书/出口诊断
 
 [2026-04-03]
 更新
