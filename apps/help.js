@@ -53,8 +53,10 @@ export class sphelp extends plugin {
 
         helpText += "【妹子图】\n";
         helpText += "· #写真馆+ID - 获取妹子图图片\n";
+        helpText += "· #潮拍馆+ID - 获取潮拍馆图集（网页端全量）\n";
         helpText += "· #随机写真 - 随机获取妹子图\n";
-        helpText += "· #更新写真ID - 更新写真ID列表\n\n";
+        helpText += "· #更新写真ID - 更新写真ID列表\n";
+        helpText += "  说明：妹子图优先走美之图 APP 接口（全量，需 config/mzt_client.pem 证书），接口异常时自动回退网页/浏览器（写真馆网页端仅前 20 张预览）。\n\n";
 
         helpText += "【P站图片获取】\n";
         helpText += "· #pid+数字 - 获取P站单张作品\n";

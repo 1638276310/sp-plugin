@@ -35,12 +35,20 @@ pnpm i --filter=sp-plugin
 
 - 本插件兼容Miao-Yunzai/Trss-Yunzai
 - 兼容ICQQ（OICQ）、NCQQ
+- 妹子图（mzt.js）支持 `#写真馆` / `#潮拍馆`：优先调用美之图 APP 全量图片接口
+  （mTLS 客户端证书 `config/mzt_client.pem`，随仓库附带），失败时自动回退网页接口 /
+  浏览器（写真馆网页端仅前 20 张预览）。证书来自官方 APK，仅用于访问图片接口；
+  若本仓库公开，该证书也会随之公开。
+
+## 相关项目
+
+- **AstrBot 版涩批插件 astrbot_plugin_sp**：<https://github.com/1638276310/astrbot_plugin_sp.git>
 
 ## 如果您对本插件有更好的代码建议，请提交Issues或Pull Requests
 
 ## Future
 
-- mzt.js 正在制作中（JS逆向解混淆，鸽.......）
+- mzt.js 已接入美之图 APP 全量图片接口（mTLS + AES-CBC，同步自 AstrBot 版），后续继续跟进站点接口变化。
 
 ## ✨ 功能    欢迎加群991639461
 
