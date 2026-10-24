@@ -1,8 +1,6 @@
 import puppeteer from "puppeteer";
 import fs from "fs";
 import path from "path";
-import https from "https";
-import http from "http";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
 
@@ -11,6 +9,28 @@ import {
 	hdBeautyImageUrl,
 	hdImageUrl,
 } from "../lib/mzt-crypto.js";
+import {
+	ACCEPT_LANGUAGE,
+	API_ACCEPT,
+	buildHeaders,
+	clampStageText,
+	cloudflareStageText,
+	createCookieJar,
+	createRateLimiter,
+	delay,
+	describeError,
+	detectCloudflare,
+	extractRayId,
+	loadClientPemFile,
+	resolveUserAgent,
+	sanitizeUrl,
+	summarizeError,
+} from "../lib/mzt-net.js";
+import {
+	formatProxyForLog,
+	httpGetBuffer,
+	parseProxyUrl,
+} from "../lib/mzt-http.js";
 
 /* ------------------------------------------------------------------ *
  * 配置区（对应 AstrBot 版 _conf_schema.json 里的 mzt_* 配置项）
@@ -22,7 +42,9 @@ import {
 /**
  * 妹子图相关配置
  * @type {{mzt_site: string, mzt_app_api: string, mzt_hd: boolean,
- *         mzt_max_images: number, mzt_browser_fallback: boolean}}
+ *         mzt_max_images: number, mzt_browser_fallback: boolean,
+ *         mzt_proxy: string, mzt_ua: string, mzt_cf_wait: number,
+ *         mzt_app_cert: string}}
  */
 const MZT_CONFIG = {
 	/** 站点根地址（文章页 / 网页接口都基于它；末尾不带斜杠） */
@@ -35,6 +57,17 @@ const MZT_CONFIG = {
 	mzt_max_images: 0,
 	/** 两套直连接口都失败时，是否用 puppeteer 在页面内解密兜底 */
 	mzt_browser_fallback: true,
+	/**
+	 * 直连与浏览器统一代理，例如 `http://127.0.0.1:7890`；空=直连。
+	 * socks 不支持（记录警告后降级直连）。临时改：直接改这里的值。
+	 */
+	mzt_proxy: "",
+	/** 覆盖统一浏览器 UA；空=内置 Chrome/124。禁止 Firefox/Safari UA 配 Chromium。 */
+	mzt_ua: "",
+	/** 浏览器打开文章页后等待 Cloudflare 挑战通过的最长秒数（0=不等待） */
+	mzt_cf_wait: 8,
+	/** APP 接口 mTLS 证书路径；空=config/mzt_client.pem（相对路径按插件根目录解析） */
+	mzt_app_cert: "",
 };
 
 /**
@@ -42,13 +75,6 @@ const MZT_CONFIG = {
  * 用普通浏览器 UA 会直接被 Cloudflare 拦掉）
  */
 const APP_UA = "MztApp For Android Version/3.8.7";
-
-/** 文章页的 Accept（与 AstrBot app_core/mzt.py 的 ARTICLE_HEADERS 一致） */
-const ARTICLE_ACCEPT =
-	"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-
-/** 图片接口的 Accept（与 AstrBot 的 API_HEADERS 一致） */
-const API_ACCEPT = "application/json, text/javascript, */*; q=0.01";
 
 /** 每批合并转发的节点数（文本头算第一个节点） */
 const BATCH_SIZE = 20;
@@ -67,12 +93,8 @@ const SEND_JPEG_QUALITY = 80;
 const HTTP_TIMEOUT = 60000;
 /** 浏览器页面内解密的兜底超时（毫秒）：避免页面内 fetch 卡死导致指令永久挂起 */
 const BROWSER_DECRYPT_TIMEOUT = 60000;
-/** 单次 HTTP 响应体大小上限（字节），对齐 AstrBot fetch_bytes 的 max_size=64MB */
-const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 /** 最多跟随的重定向次数（APP 接口/图片 CDN 可能 301 到真实节点） */
 const MAX_REDIRECTS = 3;
-/** 需要跟随的 HTTP 重定向状态码 */
-const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 
 /** 图集类型 → 中文栏目名 */
 const KIND_LABEL = { photo: "写真馆", beauty: "潮拍馆" };
@@ -84,47 +106,37 @@ const SOURCE_LABEL = {
 	app: "美之图 APP 接口（全量）",
 	web: "网页接口",
 	browser: "网页（浏览器兜底）",
+	page: "网页首图（兜底）",
 };
 
 /** 当前文件所在目录（ESM 没有 __dirname，用 import.meta.url 还原） */
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_ROOT = path.join(MODULE_DIR, "..");
+/** 默认 mTLS 证书路径（注意不能用 process.cwd()：Bot 根目录不是插件目录） */
+const DEFAULT_CLIENT_CERT_PATH = path.join(PLUGIN_ROOT, "config", "mzt_client.pem");
 
-/**
- * APP 端 mTLS 客户端证书路径。
- *
- * 注意：**不能用 process.cwd() 定位** —— TRSS-Yunzai 的工作目录是 Bot 根目录，
- * 而不是插件目录，用 cwd 拼路径在部署环境里必然找不到证书。
- */
-const MZT_CLIENT_CERT_PATH = path.join(
-	MODULE_DIR,
-	"..",
-	"config",
-	"mzt_client.pem",
-);
-
-/**
- * 预定义的用户代理列表，用于模拟不同浏览器环境
- * @type {Array<string>}
- */
-const USER_AGENTS = [
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 13_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
-	"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0",
-	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+/** 浏览器兜底：打开文章页 / 启动浏览器超时（毫秒） */
+const BROWSER_GOTO_TIMEOUT = 60000;
+const BROWSER_LAUNCH_TIMEOUT = 30000;
+/** 浏览器兜底：Cloudflare 挑战轮询间隔（毫秒） */
+const CF_POLL_INTERVAL = 1000;
+/** 浏览器启动参数：与真实桌面 Chrome 对齐并关闭自动化特征；代理参数动态追加 */
+const BROWSER_LAUNCH_ARGS = [
+	"--no-sandbox",
+	"--disable-setuid-sandbox",
+	"--disable-dev-shm-usage",
+	"--disable-gpu",
+	"--disable-blink-features=AutomationControlled",
+	"--ignore-certificate-errors",
+	"--no-first-run",
+	"--no-default-browser-check",
+	"--lang=zh-CN",
+	"--window-size=1920,1080",
 ];
 
-/* ------------------------------------------------------------------ *
- * 通用小工具
- * ------------------------------------------------------------------ */
-
-/**
- * 从预定义的用户代理列表中随机获取一个
- * @returns {string} 随机用户代理字符串
- */
-function randomUserAgent() {
-	return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+/** 统一浏览器 UA：mzt_ua 覆盖，否则内置 Chrome/124（不再随机混用 Firefox/Safari）。 */
+function browserUserAgent() {
+	return resolveUserAgent(MZT_CONFIG.mzt_ua);
 }
 
 /**
@@ -151,53 +163,44 @@ function withTimeout(promise, timeoutMs, message) {
 	});
 }
 
-/** mTLS 证书缓存：只读一次文件（进程内复用，避免每张图/每次请求都读盘） */
-let cachedClientCertificate = null;
-/** 是否已经尝试读取过证书（读取失败也标记，避免反复重试刷日志） */
-let clientCertificateLoaded = false;
+/** mTLS 证书缓存：只读一次文件（进程内复用，避免每次请求都读盘） */
+let clientCertificateState = null;
+
+/** 日志用证书路径：插件内显示相对路径，插件外只显示文件名（绝不打印内容）。 */
+function displayCertPath(filePath) {
+	const relative = path.relative(PLUGIN_ROOT, filePath);
+	return relative && !relative.startsWith("..") ? relative.split(path.sep).join("/") : path.basename(filePath);
+}
+
+/** 证书候选路径：mzt_app_cert（可选）优先，其次 config/mzt_client.pem。 */
+function resolveCertCandidates() {
+	const configured = String(MZT_CONFIG.mzt_app_cert || "").trim();
+	const candidates = configured
+		? [path.isAbsolute(configured) ? configured : path.resolve(PLUGIN_ROOT, configured)]
+		: [];
+	candidates.push(DEFAULT_CLIENT_CERT_PATH);
+	return [...new Set(candidates)];
+}
 
 /**
- * 读取 APP 内置的 mTLS 客户端证书，并拆成 https.request 需要的 cert/key。
- *
- * 证书文件是从官方 APK 的 PKCS#12（assets/widget/res/config，密码在解密后的
- * res/key.xml）转换出来的 PEM，前半段是 CERTIFICATE、后半段是 PRIVATE KEY，
- * 这里按 `-----BEGIN PRIVATE KEY-----` 切成两段传给 https.request。
- *
- * 读取/解析失败时返回 null：APP 接口会 403（Cloudflare），随后自动回退网页接口，
- * 不影响功能可用性。
- *
- * @returns {{cert: string, key: string}|null}
+ * 读取 APP mTLS 客户端证书（加载前校验 PEM 同时含证书与私钥，否则 cert-invalid）。
+ * @returns {{status: "loaded"|"missing"|"invalid", path: string, cert?: string, key?: string}}
  */
 function loadClientCertificate() {
-	if (clientCertificateLoaded) return cachedClientCertificate;
-	clientCertificateLoaded = true;
-
-	try {
-		const pem = fs.readFileSync(MZT_CLIENT_CERT_PATH, "utf8");
-		const privateKeyMarker = "-----BEGIN PRIVATE KEY-----";
-		const privateKeyIndex = pem.indexOf(privateKeyMarker);
-		if (privateKeyIndex < 0) {
-			logger.warn(
-				`[mzt] 证书文件缺少私钥段，APP 接口可能被 403 拦截：${MZT_CLIENT_CERT_PATH}`,
-			);
-			return null;
+	if (clientCertificateState) return clientCertificateState;
+	let fallback = { status: "missing", path: DEFAULT_CLIENT_CERT_PATH };
+	for (const candidate of resolveCertCandidates()) {
+		const loaded = loadClientPemFile(candidate);
+		if (loaded.status === "loaded") {
+			clientCertificateState = loaded;
+			logger.info(`[mzt] stage=cert path=${displayCertPath(candidate)} status=loaded`);
+			return clientCertificateState;
 		}
-		cachedClientCertificate = {
-			cert: pem.slice(0, privateKeyIndex).trim(),
-			key: pem.slice(privateKeyIndex).trim(),
-		};
-		logger.info(
-			`[mzt] 已加载 APP 接口 mTLS 客户端证书：${path.basename(
-				MZT_CLIENT_CERT_PATH,
-			)}`,
-		);
-	} catch (error) {
-		logger.warn(
-			`[mzt] 加载 mTLS 客户端证书失败（${error.message}），APP 接口可能被 403 拦截`,
-		);
-		cachedClientCertificate = null;
+		if (loaded.status === "invalid") fallback = loaded;
 	}
-	return cachedClientCertificate;
+	clientCertificateState = fallback;
+	logger.warn(`[mzt] stage=cert path=${displayCertPath(fallback.path)} status=${fallback.status}（APP 接口跳过）`);
+	return clientCertificateState;
 }
 
 /**
@@ -467,135 +470,146 @@ function parseArticleHtml(html, fallbackKind) {
 }
 
 /* ------------------------------------------------------------------ *
- * 直连 HTTP 请求
+ * 阶段日志 / 结构化错误 / 代理配置 / 请求封装（DESIGN 第 5、6 节）
  * ------------------------------------------------------------------ */
 
+/** 单个抓取阶段的失败：message 为 `标签:原因`（每个阶段最多 90 字符）。 */
+class MztStageError extends Error {
+	constructor(stage, detail, extra = {}) {
+		const text = clampStageText(`${stage}:${detail || "请求失败"}`);
+		super(text);
+		this.name = "MztStageError";
+		this.stage = stage;
+		this.stageText = text;
+		this.code = extra.code || "";
+		this.status = Number(extra.status) || 0;
+		this.cf = extra.cf || null;
+		this.meta = extra.meta || null;
+	}
+}
+
+/** 全部阶段失败：message 一行摘要，额外带 stageErrors / hint。 */
+class MztFetchError extends Error {
+	constructor(stageErrors, hint = "") {
+		const errors = (stageErrors || []).filter(Boolean);
+		super([...errors, hint].filter(Boolean).join("；") || "未知原因");
+		this.name = "MztFetchError";
+		this.stageErrors = errors;
+		this.hint = hint || "";
+	}
+}
+
+/** 代理失败过（已降级直连）：仅用于最终 hint */
+let proxyFailureSeen = false;
+/** 代理配置缓存（只解析/记录一次） */
+let proxyConfigCache = null;
+
+/** 解析 mzt_proxy；socks 等不支持协议记录警告后按直连处理。 */
+function resolveProxyConfig() {
+	if (proxyConfigCache) return proxyConfigCache;
+	proxyConfigCache = parseProxyUrl(MZT_CONFIG.mzt_proxy);
+	if (proxyConfigCache.configured && proxyConfigCache.ok) {
+		logger.info(`[mzt] proxy=${formatProxyForLog(proxyConfigCache.proxy)}`);
+	} else if (proxyConfigCache.configured) {
+		logger.warn(`[mzt] 代理不可用（${proxyConfigCache.reason}），按直连处理`);
+	}
+	return proxyConfigCache;
+}
+
+/** 同一 ID 抓取限速（模块级 Map + 3 秒） */
+const articleRateLimiter = createRateLimiter(3000);
+
+/** 输出一条 stage 日志；URL 去掉 sign 等 query 值，不打印 Cookie/证书/HTML。 */
+function emitStageLog(stage, url, info = {}) {
+	const parts = [
+		`[mzt] stage=${stage}`,
+		`url=${sanitizeUrl(url, { keepOrigin: stage !== "web" })}`,
+	];
+	if (info.status) parts.push(`status=${info.status}`);
+	parts.push(`cf-ray=${info.cf?.rayId || extractRayId(info.headers || {}, info.body || "") || "-"}`);
+	if (info.challenge) parts.push(`challenge=${info.challenge}`);
+	if (info.error) parts.push(`error=${describeError(info.error, 120)}`);
+	if (info.elapsed !== undefined) parts.push(`elapsed=${Math.max(0, Number(info.elapsed) || 0)}ms`);
+	logger.info(parts.join(" "));
+}
+
+/** 输出成功结果摘要（DESIGN 第 5.2 节）。 */
+function logResult(album) {
+	logger.info(`[mzt] result source=${album.source} images=${album.imageUrls.length} total=${album.total || "-"} truncated=${album.truncated}`);
+}
+
+/** 根据响应状态/Cloudflare 特征生成 stage 错误。 */
+function stageErrorForResponse(stage, response, cf) {
+	const status = response?.statusCode || 0;
+	if (cf?.blocked) return new MztStageError(stage, cloudflareStageText(cf, status), { cf, status });
+	return new MztStageError(stage, `HTTP ${status}`, { status });
+}
+
 /**
- * 发起一次 HTTP(S) GET 请求，并把响应体完整读进 Buffer（自动跟随重定向）。
- *
- * 之所以不用 axios：APP 接口必须走 mTLS（客户端证书），而项目现有依赖里
- * axios 是可选依赖、且 https.Agent 配置不直观；Node 内置 https.request
- * 直接支持 key/cert，零新增依赖。
- *
- * @param {string} url 请求地址
- * @param {object} [options]
- * @param {object} [options.headers] 附加请求头
- * @param {string|Buffer} [options.key] mTLS 客户端私钥（APP 接口用）
- * @param {string|Buffer} [options.cert] mTLS 客户端证书（APP 接口用）
- * @param {number} [options.timeout] 超时毫秒数
- * @param {number} [options.maxRedirects] 最多跟随的重定向次数
- * @param {number} [options.redirectCount] 内部使用：当前已跟随次数
- * @returns {Promise<{statusCode: number, headers: object, body: Buffer, finalUrl: string}>}
+ * 带 stage 日志 + 单次重试（403/429/5xx 与超时）的 GET；
+ * 代理失败时由 lib/mzt-http.js 自动降级直连并回调记录。
  */
-function httpGetBuffer(url, options = {}) {
-	const {
-		headers = {},
-		key,
-		cert,
-		timeout = HTTP_TIMEOUT,
-		maxRedirects = MAX_REDIRECTS,
-		redirectCount = 0,
-	} = options;
-
-	return new Promise((resolve, reject) => {
-		let target;
-		try {
-			target = new URL(url);
-		} catch {
-			reject(new Error(`URL 非法：${url}`));
-			return;
-		}
-		if (target.protocol !== "http:" && target.protocol !== "https:") {
-			reject(new Error(`不支持的协议：${target.protocol}`));
-			return;
-		}
-
-		const transport = target.protocol === "http:" ? http : https;
-		const requestOptions = {
-			method: "GET",
-			headers: { ...headers },
-			// 这里的 timeout 只负责在 socket 空闲时触发 'timeout' 事件，
-			// 真正的销毁在下面 req.on('timeout') 里做，避免慢图床把请求挂死。
-			timeout,
-		};
-		// 客户端证书只对 https 有意义（http 请求带上反而多余）
-		if (transport === https && (key || cert)) {
-			requestOptions.key = key;
-			requestOptions.cert = cert;
-		}
-
-		const req = transport.request(target, requestOptions, (res) => {
-			const statusCode = res.statusCode || 0;
-			const location = res.headers.location;
-
-			// 跟随 301/302/303/307/308（APP 接口可能跳转到真实节点）
-			if (REDIRECT_CODES.has(statusCode) && location) {
-				res.resume(); // 丢弃重定向响应体，释放连接
-				if (redirectCount >= maxRedirects) {
-					reject(new Error(`重定向次数超过 ${maxRedirects} 次：${url}`));
-					return;
-				}
-				let nextUrl;
-				try {
-					nextUrl = new URL(location, target).toString();
-				} catch {
-					reject(new Error(`重定向地址非法：${location}`));
-					return;
-				}
-				httpGetBuffer(nextUrl, {
-					headers,
-					key,
-					cert,
-					timeout,
-					maxRedirects,
-					redirectCount: redirectCount + 1,
-				}).then(resolve, reject);
-				return;
-			}
-
-			// 完整读流：图片/HTML/JSON 都一次性读进内存。
-			// 加大小上限，避免异常/恶意响应把进程内存打爆（对齐 AstrBot 的 max_size）。
-			const chunks = [];
-			let totalBytes = 0;
-			let settled = false;
-			res.on("data", (chunk) => {
-				if (settled) return;
-				totalBytes += chunk.length;
-				if (totalBytes > MAX_RESPONSE_BYTES) {
-					settled = true;
-					res.destroy();
-					reject(
-						new Error(
-							`响应体超过大小上限 ${MAX_RESPONSE_BYTES} 字节：${url}`,
-						),
-					);
-					return;
-				}
-				chunks.push(chunk);
-			});
-			res.on("end", () => {
-				if (settled) return;
-				settled = true;
-				resolve({
-					statusCode,
-					headers: res.headers,
-					body: Buffer.concat(chunks),
-					finalUrl: target.toString(),
-				});
-			});
-			res.on("error", (error) => {
-				if (settled) return;
-				settled = true;
-				reject(error);
-			});
+async function requestStage(stage, url, options = {}) {
+	const startedAt = Date.now();
+	try {
+		const response = await httpGetBuffer(url, {
+			...options,
+			retry: true,
+			onRetry: ({ reason, waitMs }) =>
+				logger.info(
+					`[mzt] stage=${stage} retry=1 reason=${reason} wait=${waitMs}ms ` +
+						`url=${sanitizeUrl(url, { keepOrigin: stage !== "web" })}`,
+				),
+			onProxyFailure: (error) => {
+				proxyFailureSeen = true;
+				logger.warn(
+					`[mzt] stage=proxy url=${sanitizeUrl(url)} ` +
+						`error=${describeError(error, 120)} fallback=direct`,
+				);
+			},
 		});
-
-		req.on("timeout", () => {
-			req.destroy(new Error(`请求超时（${timeout}ms）：${url}`));
+		const cf = detectCloudflare({
+			status: response.statusCode,
+			headers: response.headers,
+			body: response.body,
 		});
-		req.on("error", reject);
-		req.end();
-	});
+		emitStageLog(stage, url, {
+			status: response.statusCode,
+			headers: response.headers,
+			cf,
+			elapsed: Date.now() - startedAt,
+			challenge: cf.blocked ? cf.mode : "",
+		});
+		return { response, cf };
+	} catch (error) {
+		emitStageLog(stage, url, { elapsed: Date.now() - startedAt, error });
+		throw error instanceof MztStageError ? error : new MztStageError(stage, summarizeError(error));
+	}
+}
+
+/** 记录一条 stage 错误（去重 + clamp 90 字符）。 */
+function recordStageError(errors, error) {
+	const text = error instanceof MztStageError ? error.stageText : clampStageText(`阶段失败:${summarizeError(error)}`);
+	if (!errors.includes(text)) errors.push(text);
+	return text;
+}
+
+/** 记录失败特征（用于最终 hint）。 */
+function noteStageFailure(state, error) {
+	if (!(error instanceof MztStageError)) return;
+	if (error.code === "cert-invalid" || /cert-invalid/.test(error.stageText)) state.certInvalid = true;
+	if (error.cf?.blocked) state.cloudflare = true;
+	if (/HTTP (403|429|5\d\d)/.test(error.stageText)) state.httpBlocked = true;
+}
+
+/** 生成最终 hint（只在全部阶段失败后输出）。 */
+function buildFetchHint(state) {
+	const hints = [];
+	if (state.cloudflare || state.httpBlocked) hints.push("可在配置 mzt_proxy 使用可用代理后重试");
+	if (state.certInvalid) hints.push("APP 接口持续 403 时请检查 mzt_app_cert 客户端证书");
+	if (state.proxyConfigured && proxyFailureSeen) hints.push("代理不可用，已自动降级直连");
+	if (hints.length === 0) hints.push("请检查网络或稍后重试");
+	return hints.slice(0, 2).join("；");
 }
 
 /* ------------------------------------------------------------------ *
@@ -603,119 +617,90 @@ function httpGetBuffer(url, options = {}) {
  * ------------------------------------------------------------------ */
 
 /**
- * 获取文章页元信息（标题/发布时间/首图/总张数/真实栏目）。
- *
- * 这一步失败不致命：APP 接口成功时仍能正常出图，只是标题/时间用 APP 返回值。
+ * 获取文章页元信息（标题/时间/首图/总张数/真实栏目），并把 Set-Cookie 存入会话。
+ * 失败不致命：APP 接口成功时仍能出图，只是标题/时间用 APP 返回值。
  *
  * @param {string|number} articleId 文章 ID
  * @param {string} kind 请求栏目（photo/beauty）
+ * @param {object} cookieJar 本次抓取的 Cookie 会话
+ * @param {object} proxy 已解析代理配置
  * @returns {Promise<object>} parseArticleHtml 的结果
- * @throws {Error} 文章页请求失败或返回非 2xx
+ * @throws {MztStageError} 文章页请求失败 / 被 Cloudflare 拦截 / 非 2xx
  */
-async function fetchArticleMeta(articleId, kind) {
+async function fetchArticleMeta(articleId, kind, cookieJar, proxy) {
 	const pageUrl = albumUrl(articleId, kind);
-	const response = await httpGetBuffer(pageUrl, {
-		headers: {
-			Accept: ARTICLE_ACCEPT,
-			"User-Agent": randomUserAgent(),
-			Referer: `${MZT_CONFIG.mzt_site.replace(/\/+$/, "")}/`,
-		},
+	const siteRoot = `${MZT_CONFIG.mzt_site.replace(/\/+$/, "")}/`;
+	const { response, cf } = await requestStage("article", pageUrl, {
+		headers: buildHeaders("article", {
+			ua: browserUserAgent(),
+			referer: siteRoot,
+			cookie: cookieJar.cookieHeader(),
+		}),
 		timeout: HTTP_TIMEOUT,
+		proxy,
+		cookieJar,
 	});
-	if (response.statusCode < 200 || response.statusCode >= 300) {
-		throw new Error(`文章页 HTTP ${response.statusCode}`);
+	if (cf?.blocked || response.statusCode < 200 || response.statusCode >= 300) {
+		throw stageErrorForResponse("文章页", response, cf);
 	}
 	return parseArticleHtml(response.body.toString("utf8"), kind);
 }
 
 /**
- * 调用官方 APP 接口获取全量图集（mTLS + hex/AES-128-CBC）。
- *
- * 与网页接口同路径（`post/p?id=`），但：
- * * 必须携带 APP 内置的 mTLS 客户端证书，否则 Cloudflare 直接 403；
- * * 响应 `data` 是 hex 编码的 AES-128-CBC 密文；
- * * 解密后是 `{images:[完整URL...], count:N, title, date, thumbs}`，
- *   其中 count 是全量张数，images 已带 `?sign=`。
+ * APP 接口（mTLS + hex/AES-128-CBC）获取全量图集；证书无效/接口失败抛 stage 错误。
  *
  * @param {string|number} articleId 文章 ID
  * @param {string} kind 栏目（photo/beauty）
- * @returns {Promise<object|null>} 成功返回图集对象，任何失败返回 null（外层走兜底）
+ * @param {object} proxy 已解析代理配置
+ * @returns {Promise<object|null>} 成功返回图集；未配置 mzt_app_api 返回 null
+ * @throws {MztStageError}
  */
-async function fetchAppAlbum(articleId, kind) {
-	const base = String(MZT_CONFIG.mzt_app_api || "")
-		.trim()
-		.replace(/\/+$/, "");
+async function fetchAppAlbum(articleId, kind, proxy) {
+	const base = String(MZT_CONFIG.mzt_app_api || "").trim().replace(/\/+$/, "");
 	if (!base) {
-		logger.info("[mzt] 未配置 mzt_app_api，跳过 APP 接口");
+		logger.info("[mzt] stage=app skipped=config");
 		return null;
 	}
 	const apiUrl = `${base}/post/p?id=${encodeURIComponent(articleId)}`;
 	const certificate = loadClientCertificate();
-	logger.info(
-		`[mzt] GET ${apiUrl}（mTLS=${certificate ? "on" : "off"}）`,
-	);
+	if (certificate.status !== "loaded") {
+		logger.info(`[mzt] stage=app skipped=cert-invalid url=${sanitizeUrl(apiUrl)}`);
+		throw new MztStageError("APP接口", "cert-invalid", { code: "cert-invalid" });
+	}
 
+	const { response, cf } = await requestStage("app", apiUrl, {
+		headers: buildHeaders("app", { ua: APP_UA }),
+		key: certificate.key,
+		cert: certificate.cert,
+		timeout: HTTP_TIMEOUT,
+		proxy,
+	});
+	if (cf?.blocked || response.statusCode < 200 || response.statusCode >= 300) {
+		throw stageErrorForResponse("APP接口", response, cf);
+	}
+
+	let payload;
+	try {
+		payload = JSON.parse(response.body.toString("utf8"));
+	} catch {
+		throw new MztStageError("APP接口", "返回的不是 JSON");
+	}
+	if (!payload?.data) throw new MztStageError("APP接口", "返回格式异常（缺少 data）");
 	let decoded;
 	try {
-		const response = await httpGetBuffer(apiUrl, {
-			headers: {
-				Accept: API_ACCEPT,
-				"X-Requested-With": "XMLHttpRequest",
-				"User-Agent": APP_UA,
-			},
-			key: certificate ? certificate.key : undefined,
-			cert: certificate ? certificate.cert : undefined,
-			timeout: HTTP_TIMEOUT,
-		});
-
-		if (response.statusCode < 200 || response.statusCode >= 300) {
-			logger.info(
-				`[mzt] APP 接口 HTTP ${response.statusCode}，回退网页接口`,
-			);
-			return null;
-		}
-
-		let payload;
-		try {
-			payload = JSON.parse(response.body.toString("utf8"));
-		} catch (error) {
-			logger.info(`[mzt] APP 接口返回的不是 JSON：${error.message}`);
-			return null;
-		}
-		if (!payload || !payload.data) {
-			logger.info("[mzt] APP 接口返回格式异常（没有 data 字段）");
-			return null;
-		}
 		decoded = decodeApiPayload(payload.data, articleId);
-	} catch (error) {
-		logger.info(`[mzt] APP 接口失败：${error.message}`);
-		return null;
+	} catch {
+		throw new MztStageError("APP接口", "数据解密失败");
 	}
-
-	if (decoded.scheme !== "app") {
-		logger.info("[mzt] APP 接口返回的是网页端 GCM 格式，改走网页接口");
-		return null;
-	}
+	if (decoded.scheme !== "app") throw new MztStageError("APP接口", "返回了网页端加密格式");
 
 	let images = (decoded.images || []).filter(Boolean);
-	if (images.length === 0) {
-		logger.info("[mzt] APP 接口没有返回图片");
-		return null;
-	}
-
-	// 高清处理：潮拍馆（带 thumbs，新浪图床）mw1024→mw2000；
-	// 写真馆（ap/ax.iimzt.com）ap→ax 并重新签名。
+	if (images.length === 0) throw new MztStageError("APP接口", "没有返回图片");
 	if (MZT_CONFIG.mzt_hd) {
-		images = decoded.thumbs
-			? images.map((url) => hdBeautyImageUrl(url))
-			: images.map((url) => hdImageUrl(url));
+		images = decoded.thumbs ? images.map(hdBeautyImageUrl) : images.map(hdImageUrl);
 	}
-
 	const total = Number(decoded.count) || images.length;
-	logger.info(
-		`[mzt] APP 接口成功：${images.length} 张（接口 count=${decoded.count}，` +
-			`HD=${MZT_CONFIG.mzt_hd}，thumbs=${decoded.thumbs}）`,
-	);
+	logger.info(`[mzt] stage=app decoded=${images.length} count=${decoded.count} hd=${MZT_CONFIG.mzt_hd} thumbs=${decoded.thumbs}`);
 
 	return {
 		articleId: String(articleId),
@@ -724,60 +709,57 @@ async function fetchAppAlbum(articleId, kind) {
 		kind,
 		imageUrls: images,
 		total,
-		// 注意：truncated 用"截断前"的张数比较，与 AstrBot 一致
+		// truncated 用"截断前"的张数比较，与 AstrBot 一致
 		truncated: total > images.length,
 		source: "app",
-		// 潮拍馆图片在新浪图床（tva1.sinaimg.cn），有防盗链，需要 weibo.com Referer；
-		// 写真馆 ap/ax.iimzt.com 不需要 Referer。
+		// 潮拍馆图片在新浪图床，有防盗链需要 weibo.com Referer；写真馆不需要
 		referer: decoded.thumbs ? "https://weibo.com/" : null,
 		pageUrl: albumUrl(articleId, kind),
 	};
 }
 
 /**
- * 走网页接口 `{站点}/app/post/p?id=` 获取图片（base64 + AES-256-GCM）。
- *
- * 写真馆网页端被服务端限制为**前 20 张预览**，因此 total（来自文章页进度条）
- * 可能大于实际拿到的张数，此时 truncated=true。
+ * 网页接口（base64 + AES-256-GCM）获取图片，复用文章页 Cookie 会话与统一请求头。
+ * 写真馆网页端仅前 20 张预览，truncated 由文章页 progressBar 总数判断。
  *
  * @param {string|number} articleId 文章 ID
- * @param {object} meta 文章页元信息（parseArticleHtml 的结果）
+ * @param {object} meta 文章页元信息
  * @param {string} kind 真实栏目
+ * @param {object} cookieJar 文章页会话 Cookie
+ * @param {object} proxy 已解析代理配置
  * @returns {Promise<object>} 图集对象
- * @throws {Error} 接口请求/解密失败
+ * @throws {MztStageError}
  */
-async function fetchWebAlbum(articleId, meta, kind) {
+async function fetchWebAlbum(articleId, meta, kind, cookieJar, proxy) {
 	const pageUrl = albumUrl(articleId, kind);
-	const apiUrl = `${MZT_CONFIG.mzt_site.replace(
-		/\/+$/,
-		"",
-	)}/app/post/p?id=${encodeURIComponent(articleId)}`;
-	logger.info(`[mzt] GET 网页图片接口 ${apiUrl}`);
-
-	const response = await httpGetBuffer(apiUrl, {
-		headers: {
-			Accept: API_ACCEPT,
-			"X-Requested-With": "XMLHttpRequest",
-			Referer: pageUrl,
-			"User-Agent": randomUserAgent(),
-		},
+	const apiUrl = `${MZT_CONFIG.mzt_site.replace(/\/+$/, "")}/app/post/p?id=${encodeURIComponent(articleId)}`;
+	const { response, cf } = await requestStage("web", apiUrl, {
+		headers: buildHeaders("api", {
+			ua: browserUserAgent(),
+			referer: pageUrl,
+			cookie: cookieJar.cookieHeader(),
+		}),
 		timeout: HTTP_TIMEOUT,
+		proxy,
+		cookieJar,
 	});
-	if (response.statusCode < 200 || response.statusCode >= 300) {
-		throw new Error(`网页接口 HTTP ${response.statusCode}`);
+	if (cf?.blocked || response.statusCode < 200 || response.statusCode >= 300) {
+		throw stageErrorForResponse("网页接口", response, cf);
 	}
 
 	let payload;
 	try {
 		payload = JSON.parse(response.body.toString("utf8"));
-	} catch (error) {
-		throw new Error(`网页接口返回的不是 JSON：${error.message}`);
+	} catch {
+		throw new MztStageError("网页接口", "返回的不是 JSON");
 	}
-	if (!payload || !payload.data) {
-		throw new Error("网页接口没有 data 字段");
+	if (!payload?.data) throw new MztStageError("网页接口", "返回格式异常（缺少 data）");
+	let decoded;
+	try {
+		decoded = decodeApiPayload(payload.data, articleId);
+	} catch {
+		throw new MztStageError("网页接口", "数据解密失败");
 	}
-
-	const decoded = decodeApiPayload(payload.data, articleId);
 
 	let imageUrls;
 	let referrerPolicy;
@@ -790,19 +772,15 @@ async function fetchWebAlbum(articleId, meta, kind) {
 	} else {
 		// 网页端只给文件名：用文章页第一张图的目录拼出完整 URL
 		const prefix = dirPrefix(meta.firstImage);
-		imageUrls = (decoded.images || [])
-			.filter(Boolean)
-			.map((name) => prefix + name);
+		if (!prefix) throw new MztStageError("网页接口", "文章页缺少首图目录");
+		imageUrls = (decoded.images || []).filter(Boolean).map((name) => prefix + name);
 		referrerPolicy = meta.referrerPolicy;
 		total = Number(meta.total) || 0;
 	}
+	if (imageUrls.length === 0) throw new MztStageError("网页接口", "没有返回图片");
 
 	const truncated = Boolean(total && imageUrls.length < total);
-	logger.info(
-		`[mzt] 网页接口解密得到 ${imageUrls.length} 张（页面总数 ${
-			total || "未知"
-		}${truncated ? "，受网页端 20 张预览限制" : ""}）`,
-	);
+	logger.info(`[mzt] stage=web decoded=${imageUrls.length} total=${total || "-"} truncated=${truncated}`);
 
 	return {
 		articleId: String(articleId),
@@ -817,6 +795,182 @@ async function fetchWebAlbum(articleId, meta, kind) {
 		referer: referrerPolicy === "no-referrer" ? null : MZT_CONFIG.mzt_site,
 		pageUrl,
 	};
+}
+
+/* ------------------------------------------------------------------ *
+ * 浏览器兜底（puppeteer）：挑战等待 + page.evaluate + page.request/页面内 fetch
+ * ------------------------------------------------------------------ */
+
+/** 读取页面标题/正文摘要 + 文章元信息（会被 pid 序列化到页面，不能用 Node 变量）。 */
+async function readBrowserState(page) {
+	try {
+		return await page.evaluate(() => {
+			const query = (selector) => document.querySelector(selector);
+			const img = query("figure img");
+			const h1 = query("h1.uk-article-title") || query("h1");
+			const time = query("time");
+			const progress = query("#progressBar") || query("progress");
+			return {
+				title: document.title || "",
+				bodyText: document.body ? String(document.body.innerText || "").slice(0, 4000) : "",
+				path: location.pathname || "",
+				meta: {
+					title: h1 ? (h1.textContent || "").trim() : String(document.title || "").replace(/_美之图$/, "").trim(),
+					publishTime: time ? (time.textContent || "").trim() : "",
+					firstImage: img ? img.getAttribute("src") || "" : "",
+					referrerPolicy: img ? img.getAttribute("referrerpolicy") || "origin" : "origin",
+					total: progress ? Number.parseInt(progress.getAttribute("max") || "0", 10) || 0 : 0,
+					path: location.pathname || "",
+				},
+			};
+		});
+	} catch {
+		return { title: "", bodyText: "", path: "", meta: null };
+	}
+}
+
+/** 启动无头浏览器：统一 UA/语言/反自动化参数，代理用 --proxy-server 注入。 */
+async function launchBrowser(proxy) {
+	const args = [...BROWSER_LAUNCH_ARGS];
+	if (proxy?.ok && proxy.proxy) args.push(`--proxy-server=${proxy.proxy.protocol}://${proxy.proxy.host}:${proxy.proxy.port}`);
+	return puppeteer.launch({ headless: true, args });
+}
+
+/** 设置统一 UA / Accept-Language / Referer / viewport，并隐藏 navigator.webdriver。 */
+async function prepareBrowserPage(page, proxy) {
+	await page.setUserAgent(browserUserAgent());
+	await page.setViewport({ width: 1920, height: 1080 });
+	await page.setExtraHTTPHeaders({
+		"Accept-Language": ACCEPT_LANGUAGE,
+		Referer: `${MZT_CONFIG.mzt_site.replace(/\/+$/, "")}/`,
+	});
+	if (proxy?.ok && proxy.proxy?.hasAuth) {
+		// Chromium --proxy-server 不支持 userinfo，尝试用 page.authenticate 完成 407 认证
+		try {
+			await page.authenticate({ username: proxy.proxy.username, password: proxy.proxy.password });
+		} catch (error) {
+			logger.warn(`[mzt] stage=browser proxy-auth=failed error=${describeError(error, 120)}`);
+		}
+	}
+	await page.evaluateOnNewDocument(() => {
+		try {
+			Object.defineProperty(navigator, "webdriver", { get: () => undefined });
+			Object.defineProperty(navigator, "languages", { get: () => ["zh-CN", "zh", "en"] });
+			Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
+			window.chrome = window.chrome || { runtime: {} };
+		} catch {
+			// 某些环境禁止改写 navigator，忽略
+		}
+	});
+}
+
+/** 轮询等待 Cloudflare 挑战通过（最多 mzt_cf_wait 秒）。 */
+async function waitCloudflareChallenge(page, waitSeconds) {
+	const deadline = Date.now() + Math.max(0, Number(waitSeconds) || 0) * 1000;
+	let last = null;
+	while (Date.now() < deadline) {
+		await delay(Math.min(CF_POLL_INTERVAL, Math.max(0, deadline - Date.now())));
+		const state = await readBrowserState(page);
+		if (!state.title && !state.bodyText) continue;
+		last = state;
+		const cf = detectCloudflare({ status: 0, headers: {}, body: state.bodyText, title: state.title });
+		if (!cf.blocked) return { passed: true, state, cf };
+	}
+	const state = last || (await readBrowserState(page));
+	const cf = detectCloudflare({ status: 0, headers: {}, body: state.bodyText, title: state.title });
+	return { passed: false, state, cf };
+}
+
+/** 由 meta + 图片 URL 组装浏览器阶段图集。 */
+function browserAlbum(articleId, kind, meta, imageUrls, pageUrl, totalOverride) {
+	const total = Number(totalOverride ?? meta?.total) || 0;
+	const path = String(meta?.path || "");
+	const referrerPolicy = String(meta?.referrerPolicy || "origin");
+	return {
+		articleId: String(articleId),
+		title: meta?.title || "未知标题",
+		publishTime: meta?.publishTime || "未知时间",
+		kind: path.startsWith("/beauty/") ? "beauty" : path.startsWith("/photo/") ? "photo" : kind,
+		imageUrls,
+		total,
+		truncated: Boolean(total && imageUrls.length < total),
+		source: "browser",
+		referer: referrerPolicy === "no-referrer" ? null : MZT_CONFIG.mzt_site,
+		pageUrl,
+	};
+}
+
+/** 页面内 WebCrypto 解密结果（文件名词数组）→ 完整图集。 */
+function browserAlbumFromNames(articleId, kind, meta, names, pageUrl) {
+	if (!Array.isArray(names) || !names.every((name) => typeof name === "string")) return null;
+	const cleaned = names.filter(Boolean);
+	const prefix = dirPrefix(meta?.firstImage);
+	const imageUrls = cleaned.map((name) => (/^https?:\/\//i.test(name) ? name : prefix + name));
+	if (imageUrls.length === 0 || imageUrls.some((url) => !/^https?:\/\//i.test(url))) return null;
+	return browserAlbum(articleId, kind, meta || {}, imageUrls, pageUrl);
+}
+
+/** page.request（Playwright 风格，若环境支持）或页面内 fetch 取接口原始 JSON。 */
+async function browserPayload(page, articleId) {
+	const apiUrl = `${MZT_CONFIG.mzt_site.replace(/\/+$/, "")}/app/post/p?id=${encodeURIComponent(articleId)}`;
+	if (typeof page?.request?.get === "function") {
+		try {
+			const response = await withTimeout(
+				page.request.get(apiUrl, { headers: { Accept: API_ACCEPT, "X-Requested-With": "XMLHttpRequest", Referer: page.url() } }),
+				BROWSER_DECRYPT_TIMEOUT,
+				`浏览器接口请求超时（${BROWSER_DECRYPT_TIMEOUT}ms）`,
+			);
+			if (response?.ok?.()) return await response.text();
+		} catch (error) {
+			logger.info(`[mzt] stage=browser page.request=failed error=${describeError(error, 120)}`);
+		}
+	}
+	const result = await withTimeout(
+		page.evaluate(async (path) => {
+			const response = await fetch(path, {
+				credentials: "same-origin",
+				headers: { Accept: "application/json, text/javascript, */*; q=0.01", "X-Requested-With": "XMLHttpRequest" },
+			});
+			return { ok: response.ok, status: response.status, text: await response.text() };
+		}, `/app/post/p?id=${encodeURIComponent(articleId)}`),
+		BROWSER_DECRYPT_TIMEOUT,
+		`浏览器接口请求超时（${BROWSER_DECRYPT_TIMEOUT}ms）`,
+	);
+	if (!result?.ok) throw new MztStageError("浏览器", `图片接口 HTTP ${Number(result?.status) || 0}`);
+	return result.text;
+}
+
+/** 解析页面内拿到的接口 JSON 并在 Node 侧解密（page.evaluate 解密失败的兜底）。 */
+function browserAlbumFromPayload(articleId, kind, meta, payloadText, pageUrl) {
+	let payload;
+	try {
+		payload = JSON.parse(payloadText);
+	} catch {
+		throw new MztStageError("浏览器", "接口返回的不是 JSON");
+	}
+	if (!payload?.data) throw new MztStageError("浏览器", "接口返回格式异常（缺少 data）");
+	let decoded;
+	try {
+		decoded = decodeApiPayload(payload.data, articleId);
+	} catch {
+		throw new MztStageError("浏览器", "接口数据解密失败");
+	}
+	const images = (decoded.images || []).filter(Boolean);
+	if (images.length === 0) throw new MztStageError("浏览器", "没有解密出图片");
+	let effectiveMeta = meta || {};
+	let imageUrls;
+	let total;
+	if (decoded.scheme === "app") {
+		imageUrls = images;
+		total = Number(decoded.count) || images.length;
+		effectiveMeta = { ...effectiveMeta, referrerPolicy: "no-referrer" };
+	} else {
+		const prefix = dirPrefix(effectiveMeta.firstImage);
+		if (!prefix) throw new MztStageError("浏览器", "文章页缺少首图目录");
+		imageUrls = images.map((name) => prefix + name);
+		total = Number(effectiveMeta.total) || 0;
+	}
+	return browserAlbum(articleId, kind, effectiveMeta, imageUrls, pageUrl, total);
 }
 
 /**
@@ -898,177 +1052,245 @@ async function browserFetchDecrypt(articleId) {
 }
 
 /**
- * 浏览器兜底：用 puppeteer 打开文章页，在页面内 fetch + WebCrypto 解密。
+ * 浏览器兜底：打开文章页 → 识别/等待 Cloudflare 挑战 → page.evaluate 解密 →
+ * page.request（若环境支持）/页面内 fetch 取原始 JSON 兜底。
+ *
+ * puppeteer 没有 Playwright 的 page.request API；browserPayload 会先探测，
+ * 不存在时用页面内 fetch（自动复用浏览器 Cookie），再由 Node 侧解密。
+ *
+ * @param {string|number} articleId 文章 ID
+ * @param {string} kind 请求栏目（photo/beauty）
+ * @param {object} proxy 已解析代理配置
+ * @returns {Promise<object>} 图集对象
+ * @throws {MztStageError}
+ */
+async function fetchAlbumBrowser(articleId, kind, proxy) {
+	const pageUrl = albumUrl(articleId, kind);
+	const startedAt = Date.now();
+	let browser = null;
+	let lastDoc = null;
+	let state = { title: "", bodyText: "", meta: null };
+	let pageMeta = null;
+	let cf = null;
+	let challenge = "";
+	let logged = false;
+
+	const logStage = (extra = {}) => {
+		if (logged) return;
+		logged = true;
+		emitStageLog("browser", pageUrl, {
+			status: lastDoc?.status,
+			headers: lastDoc?.headers,
+			cf,
+			challenge,
+			elapsed: Date.now() - startedAt,
+			...extra,
+		});
+	};
+
+	try {
+		browser = await withTimeout(launchBrowser(proxy), BROWSER_LAUNCH_TIMEOUT, `浏览器启动超时（${BROWSER_LAUNCH_TIMEOUT}ms）`);
+		const page = await browser.newPage();
+		await prepareBrowserPage(page, proxy);
+		// 记录最后一次导航响应（挑战通过后页面会重新导航，新响应的 cf-ray 更准确）
+		page.on("response", (response) => {
+			try {
+				if (response.request().isNavigationRequest()) {
+					lastDoc = { status: response.status(), headers: response.headers() || {} };
+				}
+			} catch {
+				// 已销毁页面的响应对象可能不可用
+			}
+		});
+
+		let response = null;
+		try {
+			response = await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: BROWSER_GOTO_TIMEOUT });
+		} catch (error) {
+			throw new MztStageError("浏览器", `页面加载失败：${summarizeError(error)}`);
+		}
+		lastDoc = { status: response?.status() || 0, headers: response?.headers() || {} };
+		state = await readBrowserState(page);
+		pageMeta = state.meta;
+		cf = detectCloudflare({ status: lastDoc.status, headers: lastDoc.headers, body: state.bodyText, title: state.title });
+
+		// Cloudflare 挑战：等待 mzt_cf_wait 秒；硬拦截不等待
+		if (cf.blocked) {
+			const waitSeconds = Math.max(0, Number(MZT_CONFIG.mzt_cf_wait) || 0);
+			if (cf.mode === "challenge" && waitSeconds > 0) {
+				const waited = await waitCloudflareChallenge(page, waitSeconds);
+				state = waited.state || state;
+				pageMeta = state.meta || pageMeta;
+				if (waited.passed) {
+					challenge = "passed";
+					// 挑战通过后页面已 200，不能再拿旧 challenge 响应的 403/cf-ray 判定
+					cf = waited.cf;
+				} else {
+					challenge = "blocked";
+					cf = { ...cf, blocked: true, mode: "blocked", rayId: waited.cf.rayId || cf.rayId || extractRayId(lastDoc?.headers || {}, state.bodyText) };
+				}
+			} else {
+				challenge = "blocked";
+			}
+		}
+		if (cf?.blocked) {
+			logStage();
+			throw new MztStageError("浏览器", cloudflareStageText(cf, lastDoc?.status || 0), { cf, status: lastDoc?.status || 0, meta: pageMeta });
+		}
+
+		// 优先 page.evaluate 页面内 fetch + WebCrypto
+		try {
+			const result = await withTimeout(
+				page.evaluate(browserFetchDecrypt, String(articleId)),
+				BROWSER_DECRYPT_TIMEOUT,
+				`浏览器内解密超时（${BROWSER_DECRYPT_TIMEOUT}ms）`,
+			);
+			const album = browserAlbumFromNames(articleId, kind, result?.meta || pageMeta || {}, result?.names || [], pageUrl);
+			if (album) {
+				logStage();
+				return album;
+			}
+		} catch (error) {
+			logger.info(`[mzt] stage=browser decrypt=page-evaluate-failed error=${describeError(error, 120)}`);
+		}
+
+		// 兜底：page.request / 页面内 fetch 取原始 JSON，Node 侧解密
+		try {
+			const album = browserAlbumFromPayload(articleId, kind, pageMeta || {}, await browserPayload(page, articleId), pageUrl);
+			logStage();
+			return album;
+		} catch (error) {
+			const stageError = error instanceof MztStageError ? error : new MztStageError("浏览器", summarizeError(error));
+			if (pageMeta) stageError.meta = pageMeta;
+			logStage({ error: stageError });
+			throw stageError;
+		}
+	} catch (error) {
+		if (!logged) {
+			const stageError = error instanceof MztStageError ? error : new MztStageError("浏览器", summarizeError(error));
+			if (pageMeta) stageError.meta = pageMeta;
+			logStage({ error: stageError });
+			throw stageError;
+		}
+		throw error;
+	} finally {
+		if (browser) {
+			try {
+				await browser.close();
+			} catch {
+				// 关闭失败不影响结果
+			}
+		}
+	}
+}
+
+/**
+ * 获取一个写真/潮拍图集（与 AstrBot 一致的完整回退链）：
+ * 1. APP 接口（mTLS，全量）；
+ * 2. 文章页元信息 + 网页接口（同 Cookie 会话，写真馆前 20 张预览）；
+ * 3. 浏览器兜底（挑战等待 + page.evaluate + page.request/页面内 fetch）；
+ * 4. 文章页首图兜底（source="page", truncated=true）；
+ * 5. 全失败抛 MztFetchError（带 stageErrors/hint），由调用方回复"连接网页失败"。
  *
  * @param {string|number} articleId 文章 ID
  * @param {string} kind 请求栏目（photo/beauty）
  * @returns {Promise<object>} 图集对象
- * @throws {Error} 浏览器启动/页面加载/页面内解密失败
- */
-async function fetchAlbumBrowser(articleId, kind) {
-	const pageUrl = albumUrl(articleId, kind);
-	logger.info(`[mzt] 浏览器兜底：打开 ${pageUrl}`);
-
-	let browser = null;
-	let result;
-	try {
-		browser = await puppeteer.launch({
-			args: ["--no-sandbox", "--disable-setuid-sandbox"],
-			headless: "new",
-		});
-		const page = await browser.newPage();
-		await page.setUserAgent(randomUserAgent());
-		await page.goto(pageUrl, {
-			waitUntil: "domcontentloaded",
-			timeout: 60000,
-		});
-		// page.evaluate 没有 deadline：页面内 fetch 卡住时整个指令会永久挂起，
-		// 这里用总超时兜底，超时后由 finally 关闭浏览器。
-		result = await withTimeout(
-			page.evaluate(browserFetchDecrypt, String(articleId)),
-			BROWSER_DECRYPT_TIMEOUT,
-			`浏览器内解密超时（${BROWSER_DECRYPT_TIMEOUT}ms）`,
-		);
-	} finally {
-		if (browser) await browser.close();
-	}
-
-	const meta = (result && result.meta) || {};
-	const names = (result && result.names) || [];
-	if (
-		!Array.isArray(names) ||
-		!names.every((name) => typeof name === "string")
-	) {
-		throw new Error("浏览器内解密结果不是字符串数组");
-	}
-
-	// 用 location.pathname 判断真实栏目（用户可能把潮拍链接当成写真馆发）
-	const decodedPath = String(meta.path || "");
-	let actualKind = kind;
-	if (decodedPath.startsWith("/beauty/")) actualKind = "beauty";
-	else if (decodedPath.startsWith("/photo/")) actualKind = "photo";
-
-	const prefix = dirPrefix(meta.firstImage);
-	const imageUrls = names.filter(Boolean).map((name) => prefix + name);
-	const total = Number(meta.total) || 0;
-	const truncated = Boolean(total && imageUrls.length < total);
-	const referrerPolicy = String(meta.referrerPolicy || "origin");
-	logger.info(`[mzt] 浏览器兜底解密得到 ${imageUrls.length} 张`);
-
-	return {
-		articleId: String(articleId),
-		title: meta.title || "未知标题",
-		publishTime: meta.publishTime || "未知时间",
-		kind: actualKind,
-		imageUrls,
-		total,
-		truncated,
-		source: "browser",
-		referer:
-			referrerPolicy === "no-referrer" ? null : MZT_CONFIG.mzt_site,
-		pageUrl,
-	};
-}
-
-/**
- * 获取一个写真/潮拍图集（完整回退链）。
- *
- * 顺序与 AstrBot app_core/mzt.py 的 fetch_album 一致：
- * 1. APP 接口（全量，需要 mTLS 证书）；
- * 2. 文章页元信息（标题/时间/首图目录/总张数/真实栏目，失败不致命）；
- * 3. APP 失败且文章页可用 → 网页接口（写真馆仅前 20 张预览）；
- * 4. 两套直连都失败且允许兜底 → puppeteer 页面内 fetch + WebCrypto；
- * 5. 全部失败抛错，由调用方回复"连接网页失败"。
- *
- * @param {string|number} articleId 文章 ID
- * @param {string} kind 请求栏目（photo/beauty）
- * @returns {Promise<object>} 图集对象：
- *   {articleId, title, publishTime, kind, imageUrls, total, truncated,
- *    source, referer, pageUrl}
- * @throws {Error} 所有途径都失败（message 里带上各途径的错误原因）
+ * @throws {MztFetchError}
  */
 async function fetchAlbum(articleId, kind) {
 	const id = String(articleId);
-	const requestedKind = String(kind).toLowerCase() === "beauty"
-		? "beauty"
-		: "photo";
+	const requestedKind = String(kind).toLowerCase() === "beauty" ? "beauty" : "photo";
+	const proxy = resolveProxyConfig();
+	const waitMs = articleRateLimiter.reserve(id);
+	if (waitMs > 0) {
+		logger.info(`[mzt] rate-limit wait=${waitMs}ms`);
+		await delay(waitMs);
+	}
+	proxyFailureSeen = false;
 	const errors = [];
+	const state = { certInvalid: false, cloudflare: false, httpBlocked: false, proxyConfigured: Boolean(proxy?.proxy) };
 
-	// 1) APP 接口优先：全量图片，且不依赖文章页
+	// 1) APP 接口（全量；证书无效时记 cert-invalid）
 	let appAlbum = null;
 	try {
-		appAlbum = await fetchAppAlbum(id, requestedKind);
+		appAlbum = await fetchAppAlbum(id, requestedKind, proxy);
 	} catch (error) {
-		errors.push(`APP 接口异常：${error.message}`);
+		recordStageError(errors, error);
+		noteStageFailure(state, error);
 	}
-	if (!appAlbum) {
-		// 具体原因 fetchAppAlbum 内部已打日志（403/非 JSON/解密失败/没有图片）；
-		// 这里只保留一句汇总，供最终全部失败时拼进机器人回复。
-		errors.push("APP 接口不可用");
-	}
-
-	// 2) 文章页元信息（失败不致命，APP 接口仍可用）
-	let meta = null;
-	try {
-		meta = await fetchArticleMeta(id, requestedKind);
-		logger.info(
-			`[mzt] 文章页：标题=${meta.title}，时间=${meta.publishTime}，` +
-				`类型=${meta.kind}，总数=${meta.total || "未知"}`,
-		);
-	} catch (error) {
-		errors.push(`文章页失败：${error.message}`);
-		logger.info(
-			`[mzt] 文章页获取失败（${error.message}），继续尝试接口`,
-		);
-	}
-	const actualKind = meta ? meta.kind : requestedKind;
-
-	// 3) APP 成功：用文章页的标题/时间/真实栏目覆盖（页面拿不到时保留 APP 返回值）
 	if (appAlbum) {
-		if (meta) {
-			if (meta.title) appAlbum.title = meta.title;
-			if (meta.publishTime && meta.publishTime !== "未知时间") {
-				appAlbum.publishTime = meta.publishTime;
-			}
-			appAlbum.kind = actualKind;
-		}
 		appAlbum.imageUrls = applyImageLimit(appAlbum.imageUrls);
+		logResult(appAlbum);
 		return appAlbum;
 	}
 
-	// 4) APP 失败且文章页可用 → 网页接口兜底（写真馆只有前 20 张预览）
+	// 2) 文章页 + 网页接口共用同一个 Cookie 会话（APP 失败才走这里）
+	const cookieJar = createCookieJar();
+	let meta = null;
+	try {
+		meta = await fetchArticleMeta(id, requestedKind, cookieJar, proxy);
+	} catch (error) {
+		recordStageError(errors, error);
+		noteStageFailure(state, error);
+	}
+	const actualKind = meta ? meta.kind : requestedKind;
+	let webAlbum = null;
 	if (meta) {
 		try {
-			const webAlbum = await fetchWebAlbum(id, meta, actualKind);
-			webAlbum.imageUrls = applyImageLimit(webAlbum.imageUrls);
-			if (webAlbum.imageUrls.length > 0) return webAlbum;
-			errors.push("网页接口没有返回图片");
+			webAlbum = await fetchWebAlbum(id, meta, actualKind, cookieJar, proxy);
 		} catch (error) {
-			errors.push(`网页接口失败：${error.message}`);
-			logger.info(
-				`[mzt] 网页接口失败（${error.message}），尝试浏览器兜底`,
-			);
+			recordStageError(errors, error);
+			noteStageFailure(state, error);
 		}
 	} else {
-		errors.push("文章页不可用，无法调用网页接口");
+		errors.push("网页接口:文章页不可用");
+	}
+	if (webAlbum && webAlbum.imageUrls.length > 0) {
+		webAlbum.imageUrls = applyImageLimit(webAlbum.imageUrls);
+		logResult(webAlbum);
+		return webAlbum;
 	}
 
-	// 5) 浏览器兜底（可在 MZT_CONFIG 里关闭）
+	// 3) 浏览器兜底（mzt_browser_fallback=false 时跳过，仍允许首图兜底）
+	let browserMeta = null;
 	if (MZT_CONFIG.mzt_browser_fallback !== false) {
 		try {
-			const browserAlbum = await fetchAlbumBrowser(id, requestedKind);
-			browserAlbum.imageUrls = applyImageLimit(browserAlbum.imageUrls);
-			if (browserAlbum.imageUrls.length > 0) return browserAlbum;
-			errors.push("浏览器兜底没有解密出图片");
+			const album = await fetchAlbumBrowser(id, requestedKind, proxy);
+			album.imageUrls = applyImageLimit(album.imageUrls);
+			if (album.imageUrls.length > 0) {
+				logResult(album);
+				return album;
+			}
 		} catch (error) {
-			errors.push(`浏览器兜底失败：${error.message}`);
-			logger.info(`[mzt] 浏览器兜底失败：${error.message}`);
+			browserMeta = error?.meta || null;
+			recordStageError(errors, error);
+			noteStageFailure(state, error);
 		}
 	} else {
-		errors.push("已禁用浏览器兜底（mzt_browser_fallback=false）");
+		errors.push("浏览器:已禁用（mzt_browser_fallback=false）");
 	}
 
-	throw new Error(errors.join("；") || "未知原因");
+	// 4) 文章页首图兜底（直连或浏览器页面拿到的 meta 均可）
+	const pageMeta = meta || browserMeta;
+	if (pageMeta?.firstImage) {
+		const album = {
+			articleId: id,
+			title: pageMeta.title || "未知标题",
+			publishTime: pageMeta.publishTime || "未知时间",
+			kind: pageMeta.kind || (String(pageMeta.path || "").startsWith("/beauty/") ? "beauty" : requestedKind),
+			imageUrls: applyImageLimit([pageMeta.firstImage]),
+			total: Number(pageMeta.total) || 0,
+			truncated: true,
+			source: "page",
+			referer: pageMeta.referrerPolicy === "no-referrer" ? null : MZT_CONFIG.mzt_site,
+			pageUrl: albumUrl(id, requestedKind),
+		};
+		logResult(album);
+		return album;
+	}
+	errors.push("网页首图:文章页未提供首图");
+
+	throw new MztFetchError(errors, buildFetchHint(state));
 }
 
 /* ------------------------------------------------------------------ *
@@ -1084,28 +1306,20 @@ async function fetchAlbum(articleId, kind) {
  */
 async function downloadImageBuffer(imageUrl, referer) {
 	try {
-		const headers = {
-			Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-			"User-Agent": randomUserAgent(),
-		};
-		if (referer) headers.Referer = referer;
-
+		// 与解析链路共用 mzt_proxy：部署机 IP 被拦时图片也必须走代理
 		const response = await httpGetBuffer(imageUrl, {
-			headers,
+			headers: buildHeaders("image", { ua: browserUserAgent(), referer }),
 			timeout: DOWNLOAD_TIMEOUT,
 			maxRedirects: MAX_REDIRECTS,
+			proxy: resolveProxyConfig(),
 		});
 		if (response.statusCode !== 200) {
-			logger.warn(
-				`[mzt] 下载图片失败（HTTP ${response.statusCode}）：${imageUrl.slice(0, 100)}`,
-			);
+			logger.warn(`[mzt] 下载图片失败（HTTP ${response.statusCode}）：${sanitizeUrl(imageUrl)}`);
 			return null;
 		}
 		return response.body;
 	} catch (error) {
-		logger.warn(
-			`[mzt] 下载图片出错：${error.message} - ${imageUrl.slice(0, 100)}`,
-		);
+		logger.warn(`[mzt] 下载图片出错：${describeError(error, 120)} - ${sanitizeUrl(imageUrl)}`);
 		return null;
 	}
 }
@@ -1201,7 +1415,9 @@ function formatAlbumHeader(album) {
 	lines.push(`🔗 数据源: ${SOURCE_LABEL[album.source] || album.source}`);
 	if (album.truncated) {
 		lines.push(
-			"⚠️ 网页接口仅提供前 20 张预览（APP 接口暂时不可用），完整图集需“美之图”APP",
+			album.source === "page"
+				? "⚠️ 网页首图兜底：接口暂不可用，仅发送文章首图（完整图集需“美之图”APP）"
+				: "⚠️ 网页接口仅提供前 20 张预览（APP 接口暂时不可用），完整图集需“美之图”APP",
 		);
 	}
 	return lines.join("\n");
@@ -1294,14 +1510,6 @@ export class mztPlugin extends plugin {
 
 		// 初始化时加载写真ID
 		this.loadmztIds();
-	}
-
-	/**
-	 * 从预定义的用户代理列表中随机获取一个
-	 * @returns {string} 随机用户代理字符串
-	 */
-	getRandomUserAgent() {
-		return randomUserAgent();
 	}
 
 	/**
@@ -1431,9 +1639,8 @@ export class mztPlugin extends plugin {
 		try {
 			album = await fetchAlbum(articleId, kind);
 		} catch (error) {
-			logger.error(
-				`[mzt] 解析文章 ${articleId}（${kind}）失败：${error.message}`,
-			);
+			// 异常只打类型 + 截断文本；各阶段详情已在 stage 日志里，HTML/Cookie/证书不进日志
+			logger.error(`[mzt] 解析文章 ${articleId}（${kind}）失败：${describeError(error, 120)}`);
 			await e.reply(`连接网页失败，请稍后再试（${error.message}）`, true);
 			return;
 		}
@@ -1612,17 +1819,18 @@ export class mztPlugin extends plugin {
 		let stop = false;
 
 		try {
-			browser = await puppeteer.launch({
-				args: ["--no-sandbox", "--disable-setuid-sandbox"],
-				headless: "new",
-			});
+			// 与图集抓取共用统一 UA / 代理 / 反自动化参数（代理对列表页同样生效）
+			browser = await launchBrowser(resolveProxyConfig());
 			const page = await browser.newPage();
-			await page.setUserAgent(this.getRandomUserAgent());
+			await prepareBrowserPage(page, resolveProxyConfig());
 
 			while (!stop) {
 				const url = pageNo === 1 ? baseUrl : `${baseUrl}page/${pageNo}/`;
 				logger.info(`[增量] 拉取列表页 ${url}`);
-				await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+				const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: BROWSER_GOTO_TIMEOUT });
+				const state = await readBrowserState(page);
+				const cf = detectCloudflare({ status: response?.status() || 0, headers: response?.headers() || {}, body: state.bodyText, title: state.title });
+				if (cf.blocked) throw new Error(cloudflareStageText(cf, response?.status() || 0));
 
 				// 提取当前页面ID
 				const pageIds = await page.$$eval("a.uk-inline.u-thumb-v", (links) =>

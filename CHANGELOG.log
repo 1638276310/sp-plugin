@@ -1,4 +1,10 @@
 CHANGELOG
+[2026-10-24]
+修复
+修复妹子图 Cloudflare 403：统一 Chrome UA 与请求头、文章页 Cookie 复用、mzt_proxy 代理（接口+图片+浏览器）、浏览器反自动化与挑战等待、APP/网页/浏览器/首图多级降级、结构化 stage 错误与脱敏日志、403/429/5xx 单次重试与同 ID 3s 限速
+新增
+新增 tools/mzt_diag.js 独立诊断脚本；新增 mzt_proxy/mzt_ua/mzt_cf_wait/mzt_app_cert 配置
+
 [2026-04-03]
 更新
 更新磁力猫 URL
