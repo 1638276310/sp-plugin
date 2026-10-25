@@ -39,16 +39,20 @@ pnpm i --filter=sp-plugin
   全量接口（mTLS 客户端证书 `config/mzt_client.pem`，随仓库附带）→ 内置解密 →
   按解密返回的图片 URL 下载；不再访问站点 HTML 页面、不启动浏览器、失败不回退直连。
   证书来自官方 APK，仅用于访问图片接口；若本仓库公开，该证书也会随之公开。
-- 妹子图相关配置（`apps/mzt.js` 顶部 `MZT_CONFIG`，常量即配置）：
-  - `mzt_proxy`: APP 接口与图片下载统一 http/https 代理（如 `http://127.0.0.1:7890`），空=直连；
-  - `mzt_app_cert`: 自定义 mTLS 证书路径，只接受插件目录内相对路径，空= `config/mzt_client.pem`；
-  - `mzt_app_api` / `mzt_hd` / `mzt_max_images`: 与 AstrBot 版语义一致。
+- 妹子图相关配置（`apps/mzt.js` 顶部 `MZT_CONFIG`）**已全部内置默认值，用户无需填写**：
+  - `mzt_app_api`：默认 `https://api.iimzt.com/app/`；
+  - `mzt_hd`：默认关闭（全量普通图已够用，高清流量更大）；
+  - `mzt_app_cert`：默认使用随仓库附带的 `config/mzt_client.pem`。
+  - **出站固定直连**：使用设备本机 IP 和系统默认路由，不使用代理，也没有自动代理回退。
+  - 排障时可选用环境变量覆盖（不是必填项）：`SP_MZT_APP_API` / `SP_MZT_HD` /
+    `SP_MZT_APP_CERT`（兼容 `MZT_*` 旧名）。
 - `#更新写真ID` 已停用：不再直连列表页（Cloudflare 403）；写真 ID 列表改为手动放入
   `data/sp-plugin/mztids.json`（可沿用旧数据）。
 - 抓取失败会明确报错（`APP接口:...；...`），日志 `[mzt] stage=cert/app/decrypt ... status=...
   cf-ray=...` 便于定位；URL 已去掉 `sign`，不打印 Cookie/证书/HTML。
 - 独立诊断（不依赖 Bot 启动）：
-  `node plugins/sp-plugin/tools/mzt_diag.js --id 171317 [--proxy http://127.0.0.1:7890] [--json]`
+  `node plugins/sp-plugin/tools/mzt_diag.js --id 171317 [--json]`
+  （固定直连，不接受代理参数）
 
 ## 相关项目
 

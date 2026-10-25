@@ -14,9 +14,7 @@ import {
 	summarizeError,
 } from "../lib/mzt-net.js";
 import {
-	formatProxyForLog,
 	httpGetBuffer,
-	parseProxyUrl,
 } from "../lib/mzt-http.js";
 
 /**
@@ -24,10 +22,10 @@ import {
  *
  * 用法：
  *   node plugins/sp-plugin/tools/mzt_diag.js --id 171317
- *   node plugins/sp-plugin/tools/mzt_diag.js --id 171317 --proxy http://127.0.0.1:7890 --json
+ *   node plugins/sp-plugin/tools/mzt_diag.js --id 171317 --json
  *
- * 只检查出口 IP / DNS / 包内证书 / APP 接口状态与解密张数 / 图片 CDN；
- * 插件运行时不再访问站点 HTML 页面，因此这里也不探测网页/浏览器链路。
+ * 只检查 DNS / 包内证书 / APP 接口状态与解密张数 / 图片 CDN；
+ * 请求固定直连（设备本机 IP），不使用代理，也不探测网页/浏览器链路。
  */
 
 const PLUGIN_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -42,13 +40,12 @@ const DEFAULT_TIMEOUT = 15000;
 /**
  * 解析命令行参数。
  * @param {string[]} argv 命令行参数（不含 node 与脚本路径）
- * @returns {{id: string, appApi: string, proxy: string, timeout: number, json: boolean}}
+ * @returns {{id: string, appApi: string, timeout: number, json: boolean}}
  */
 function parseArgs(argv) {
 	const args = {
 		id: "171317",
 		appApi: DEFAULT_APP_API,
-		proxy: process.env.MZT_PROXY || "",
 		timeout: DEFAULT_TIMEOUT,
 		json: false,
 	};
@@ -65,9 +62,6 @@ function parseArgs(argv) {
 			case "--app-api":
 				args.appApi = next();
 				break;
-			case "--proxy":
-				args.proxy = next();
-				break;
 			case "--timeout": {
 				const value = Number(next());
 				if (Number.isFinite(value) && value > 0) args.timeout = value * 1000;
@@ -79,7 +73,7 @@ function parseArgs(argv) {
 			case "--help":
 			case "-h":
 				console.log(
-					"node tools/mzt_diag.js --id 171317 [--app-api URL] [--proxy URL] [--timeout 秒] [--json]",
+					"node tools/mzt_diag.js --id 171317 [--app-api URL] [--timeout 秒] [--json]",
 				);
 				process.exit(0);
 				break;
@@ -88,13 +82,6 @@ function parseArgs(argv) {
 		}
 	}
 	return args;
-}
-
-/** 日志用代理地址（隐藏账号密码）。 */
-function maskProxy(raw) {
-	const parsed = parseProxyUrl(raw);
-	if (!parsed.configured) return "";
-	return parsed.ok ? formatProxyForLog(parsed.proxy) : `<invalid:${parsed.reason}>`;
 }
 
 /** 去掉内部字段，只输出可序列化结果。 */
@@ -109,7 +96,7 @@ function shown(result) {
 /**
  * 发一个 GET 请求并返回脱敏后的结果；失败不抛异常。
  * @param {string} url 请求地址
- * @param {{headers?: object, proxy?: object|null, cert?: string, key?: string, timeout?: number}} options
+ * @param {{headers?: object, cert?: string, key?: string, timeout?: number}} options
  * @returns {Promise<object>}
  */
 async function probe(url, options = {}) {
@@ -117,7 +104,6 @@ async function probe(url, options = {}) {
 	try {
 		const response = await httpGetBuffer(url, {
 			headers: options.headers || {},
-			proxy: options.proxy || null,
 			cert: options.cert,
 			key: options.key,
 			timeout: options.timeout || DEFAULT_TIMEOUT,
@@ -184,11 +170,10 @@ async function checkDns(hosts) {
 	return result;
 }
 
-/** 出口 IP / Cloudflare 节点 / 时钟偏差。 */
-async function checkEgress(proxy) {
+/** 出口 IP / Cloudflare 节点 / 时钟偏差（直连）。 */
+async function checkEgress() {
 	const trace = await probe("https://www.cloudflare.com/cdn-cgi/trace", {
 		headers: { "User-Agent": UA },
-		proxy,
 	});
 	const data = {
 		trace: shown(trace),
@@ -212,8 +197,8 @@ async function checkEgress(proxy) {
 	return data;
 }
 
-/** APP 接口状态 + 内置解密张数 + 首图 CDN 探测。 */
-async function checkAppApi(appApi, articleId, proxy, certificates, timeout) {
+/** APP 接口状态 + 内置解密张数 + 首图 CDN 探测（直连）。 */
+async function checkAppApi(appApi, articleId, certificates, timeout) {
 	if (!appApi) return { skipped: true, reason: "app_api 为空" };
 	if (!certificates.ok) return { skipped: true, reason: "客户端证书不可用" };
 	const certificate = loadClientPemFile(path.join(PLUGIN_ROOT, certificates.selected.path));
@@ -222,7 +207,6 @@ async function checkAppApi(appApi, articleId, proxy, certificates, timeout) {
 
 	const response = await probe(apiUrl, {
 		headers: buildHeaders("app", { ua: APP_UA }),
-		proxy,
 		cert: certificate.cert,
 		key: certificate.key,
 		timeout,
@@ -244,7 +228,7 @@ async function checkAppApi(appApi, articleId, proxy, certificates, timeout) {
 			const referer = decoded.thumbs ? "https://weibo.com/" : "";
 			const imageHeaders = buildHeaders("image", { referer: referer || undefined });
 			result.image_cdn = {
-				...shown(await probe(firstImage, { headers: imageHeaders, proxy, timeout })),
+				...shown(await probe(firstImage, { headers: imageHeaders, timeout })),
 				referer: referer || "无",
 			};
 		} else {
@@ -264,15 +248,13 @@ function likelyCause(report) {
 	if (status === 200 && images > 0) return "APP 接口（mTLS）+ 内置解密链路正常";
 	if (app.skipped) return `APP 接口未探测：${app.reason}`;
 	if (status === 403 || status === 503 || app.cf_ray) {
-		return "APP 接口被 Cloudflare 拦截：确认 mTLS 证书有效，必要时用 mzt_proxy 更换出口";
+		return "APP 接口被 Cloudflare 拦截：先确认随包 mTLS 证书有效；若文章页也 403，说明是出口 IP/区域策略，请更换设备网络出口（插件固定直连，不使用代理）";
 	}
 	return "APP 接口异常，请结合 status/error 判断";
 }
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
-	const proxyParsed = parseProxyUrl(args.proxy);
-	const proxy = proxyParsed.ok ? proxyParsed.proxy : null;
 	const certificates = checkCertificates();
 	const appHost = (() => {
 		try {
@@ -286,8 +268,6 @@ async function main() {
 		target: {
 			id: String(args.id),
 			app_api: args.appApi,
-			proxy: maskProxy(args.proxy),
-			proxy_enabled: Boolean(proxy),
 		},
 		environment: {
 			node: process.version,
@@ -299,13 +279,12 @@ async function main() {
 			},
 		},
 		dns: await checkDns([appHost, "ap.iimzt.com", "ax.iimzt.com"]),
-		egress: await checkEgress(proxy),
+		egress: await checkEgress(),
 		certificates,
 	};
 	report.app_api = await checkAppApi(
 		args.appApi,
 		String(args.id),
-		proxy,
 		certificates,
 		args.timeout,
 	);

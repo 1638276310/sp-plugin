@@ -30,39 +30,42 @@ import {
 	summarizeError,
 } from "../lib/mzt-net.js";
 import {
-	formatProxyForLog,
 	httpGetBuffer,
-	parseProxyUrl,
 } from "../lib/mzt-http.js";
 
 /* ------------------------------------------------------------------ *
- * 配置区（对应 AstrBot 版 _conf_schema.json 里的 mzt_* 配置项）
+ * 内置默认值区（用户无需填写任何配置）
  *
- * 说明：TRSS-Yunzai 侧暂时不读插件配置文件，保持原插件"常量即配置"的风格；
- * 需要临时改行为时直接改这里的值即可（语义与 AstrBot 完全一致）。
+ * 说明：TRSS-Yunzai 侧不读插件配置文件，保持原插件“常量即配置”的风格；
+ * 默认值直接内置，开箱可用。出站固定使用设备本机 IP 直连，不做代理回退。
+ * 排障时可用环境变量覆盖（可选，不是必填项）：
+ *   SP_MZT_APP_API / SP_MZT_HD / SP_MZT_APP_CERT
  * ------------------------------------------------------------------ */
 
+/** 取环境变量文本；空值回退内置默认值。 */
+const envText = (key, fallback) => String(process.env[key] ?? "").trim() || fallback;
+/** 取环境变量布尔值；未设置回退内置默认值。 */
+const envFlag = (key, fallback) => {
+	const raw = String(process.env[key] ?? "").trim().toLowerCase();
+	return raw ? ["1", "true", "yes", "on"].includes(raw) : fallback;
+};
+
 /**
- * 妹子图相关配置（对应 AstrBot 版 MZT_CONFIG，常量即配置）
+ * 妹子图相关配置（默认值内置，环境变量仅用于排障覆盖）
  * @type {{mzt_site: string, mzt_app_api: string, mzt_hd: boolean,
- *         mzt_max_images: number, mzt_proxy: string, mzt_app_cert: string}}
+ *         mzt_max_images: number, mzt_app_cert: string}}
  */
 const MZT_CONFIG = {
 	/** 站点根地址（仅用于 APP 请求的 Referer；抓取链路不再访问站点页面） */
 	mzt_site: "https://kkmzt.com",
-	/** 美之图 APP 接口根地址（去掉尾斜杠后拼 /post/p?id=<ID>；需要 mTLS 客户端证书） */
-	mzt_app_api: "https://api.iimzt.com/app/",
-	/** 是否请求 APP 端高清图：写真馆 ap→ax 重新签名，潮拍馆 mw1024→mw2000 */
-	mzt_hd: false,
+	/** 美之图 APP 接口根地址（内置；去掉尾斜杠后拼 /post/p?id=<ID>，需要 mTLS 证书） */
+	mzt_app_api: envText("SP_MZT_APP_API", "https://api.iimzt.com/app/"),
+	/** 是否请求 APP 端高清图：写真馆 ap→ax 重新签名，潮拍馆 mw1024→mw2000；默认关闭 */
+	mzt_hd: envFlag("SP_MZT_HD", false),
 	/** 最多发送多少张；0 表示不限制（对应 AstrBot 的 mzt_max_images） */
 	mzt_max_images: 0,
-	/**
-	 * APP 接口与图片下载统一代理，例如 `http://127.0.0.1:7890`；空=直连。
-	 * socks 不支持（记录警告后降级直连）。临时改：直接改这里的值。
-	 */
-	mzt_proxy: "",
-	/** APP 接口 mTLS 证书路径；只接受插件目录内相对路径，空=config/mzt_client.pem */
-	mzt_app_cert: "",
+	/** APP 接口 mTLS 证书路径；空=内置 config/mzt_client.pem（随仓库附带） */
+	mzt_app_cert: envText("SP_MZT_APP_CERT", ""),
 };
 
 /**
@@ -175,23 +178,6 @@ class MztFetchError extends Error {
 	}
 }
 
-/** 代理失败过（已降级直连）：仅用于最终 hint */
-let proxyFailureSeen = false;
-/** 代理配置缓存（只解析/记录一次） */
-let proxyConfigCache = null;
-
-/** 解析 mzt_proxy；socks 等不支持协议记录警告后按直连处理。 */
-function resolveProxyConfig() {
-	if (proxyConfigCache) return proxyConfigCache;
-	proxyConfigCache = parseProxyUrl(MZT_CONFIG.mzt_proxy);
-	if (proxyConfigCache.configured && proxyConfigCache.ok) {
-		logger.info(`[mzt] proxy=${formatProxyForLog(proxyConfigCache.proxy)}`);
-	} else if (proxyConfigCache.configured) {
-		logger.warn(`[mzt] 代理不可用（${proxyConfigCache.reason}），按直连处理`);
-	}
-	return proxyConfigCache;
-}
-
 /** 同一 ID 抓取限速（模块级 Map + 3 秒） */
 const articleRateLimiter = createRateLimiter(3000);
 
@@ -236,13 +222,6 @@ async function requestStage(stage, url, options = {}) {
 					`[mzt] stage=${stage} retry=1 reason=${reason} wait=${waitMs}ms ` +
 						`url=${sanitizeUrl(url)}`,
 				),
-			onProxyFailure: (error) => {
-				proxyFailureSeen = true;
-				logger.warn(
-					`[mzt] stage=proxy url=${sanitizeUrl(url)} ` +
-						`error=${describeError(error, 120)} fallback=direct`,
-				);
-			},
 		});
 		const cf = detectCloudflare({
 			status: response.statusCode,
@@ -283,7 +262,6 @@ function buildFetchHint(state) {
 	const hints = [];
 	if (state.certInvalid) hints.push("检查 config/mzt_client.pem 是否为官方 APP 证书且随插件一起上传");
 	if (state.cloudflare) hints.push("APP 接口被 Cloudflare 拒绝时，先确认 mTLS 证书有效");
-	if (state.proxyConfigured && proxyFailureSeen) hints.push("代理不可用，已自动降级直连");
 	if (hints.length === 0) hints.push("请检查网络或稍后重试");
 	return hints.slice(0, 2).join("；");
 }
@@ -297,11 +275,10 @@ function buildFetchHint(state) {
  *
  * @param {string|number} articleId 文章 ID
  * @param {string} kind 栏目（photo/beauty）
- * @param {object} proxy 已解析代理配置
  * @returns {Promise<object>} 成功返回图集；未配置/证书无效/接口失败抛 MztStageError
  * @throws {MztStageError}
  */
-async function fetchAppAlbum(articleId, kind, proxy) {
+async function fetchAppAlbum(articleId, kind) {
 	const apiUrl = buildAppApiUrl(MZT_CONFIG.mzt_app_api, articleId);
 	if (!apiUrl) {
 		logger.info("[mzt] stage=app skipped=config");
@@ -318,7 +295,6 @@ async function fetchAppAlbum(articleId, kind, proxy) {
 		key: certificate.key,
 		cert: certificate.cert,
 		timeout: HTTP_TIMEOUT,
-		proxy,
 	});
 	const status = response.statusCode || 0;
 	const rayId = cf?.rayId || extractRayId(response.headers || {}, response.body) || "-";
@@ -402,19 +378,17 @@ async function fetchAppAlbum(articleId, kind, proxy) {
 async function fetchAlbum(articleId, kind) {
 	const id = String(articleId);
 	const requestedKind = String(kind).toLowerCase() === "beauty" ? "beauty" : "photo";
-	const proxy = resolveProxyConfig();
 	const waitMs = articleRateLimiter.reserve(id);
 	if (waitMs > 0) {
 		logger.info(`[mzt] rate-limit wait=${waitMs}ms`);
 		await delay(waitMs);
 	}
-	proxyFailureSeen = false;
 	const errors = [];
-	const state = { certInvalid: false, cloudflare: false, httpBlocked: false, proxyConfigured: Boolean(proxy?.proxy) };
+	const state = { certInvalid: false, cloudflare: false, httpBlocked: false };
 
-	// 唯一阶段：APP 接口（mTLS，全量）→ 内置解密
+	// 唯一阶段：APP 接口（mTLS，全量）→ 内置解密；固定直连，不走代理。
 	try {
-		const album = await fetchAppAlbum(id, requestedKind, proxy);
+		const album = await fetchAppAlbum(id, requestedKind);
 		if (album && album.imageUrls.length > 0) {
 			album.imageUrls = applyImageLimit(album.imageUrls, MZT_CONFIG.mzt_max_images);
 			album.truncated = Boolean(album.total && album.imageUrls.length < album.total);
@@ -443,12 +417,11 @@ async function fetchAlbum(articleId, kind) {
  */
 async function downloadImageBuffer(imageUrl, referer) {
 	try {
-		// 与解析链路共用 mzt_proxy：部署机 IP 被拦时图片也必须走代理
+		// 固定直连：不使用代理，使用设备本机网络出口
 		const response = await httpGetBuffer(imageUrl, {
 			headers: buildHeaders("image", { referer }),
 			timeout: DOWNLOAD_TIMEOUT,
 			maxRedirects: MAX_REDIRECTS,
-			proxy: resolveProxyConfig(),
 		});
 		if (response.statusCode !== 200) {
 			logger.warn(`[mzt] 下载图片失败（HTTP ${response.statusCode}）：${sanitizeUrl(imageUrl)}`);

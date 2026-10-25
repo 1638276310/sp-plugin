@@ -1,4 +1,11 @@
 CHANGELOG
+[2026-10-25]
+修复
+妹子图出站请求改为设备本机 IP 直连，彻底移除代理/自动代理回退；补全 TLS 服务端证书校验（Node https 默认 CA 链 + rejectUnauthorized 显式开启）并继续加载随包 mTLS 客户端证书
+
+重构
+mzt_app_api / mzt_hd / mzt_app_cert 改为代码内置默认值，用户无需填写；保留 SP_MZT_* 环境变量作为可选排障覆盖；README / mzt_diag.js 文案同步
+
 [2026-10-24]
 修复
 修复妹子图 Cloudflare 403：统一 Chrome UA 与请求头、文章页 Cookie 复用、mzt_proxy 代理（接口+图片+浏览器）、浏览器反自动化与挑战等待、APP/网页/浏览器/首图多级降级、结构化 stage 错误与脱敏日志、403/429/5xx 单次重试与同 ID 3s 限速
